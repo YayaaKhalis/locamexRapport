@@ -1,65 +1,245 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { UploadZone } from "@/components/upload-zone";
+import { ProcessingStatus } from "@/components/processing-status";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CheckCircle2, Download, AlertCircle } from "lucide-react";
+import { ProcessingState } from "@/types";
 
 export default function Home() {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [processingState, setProcessingState] = useState<ProcessingState>({
+    step: "idle",
+    progress: 0,
+    message: "",
+  });
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    setError(null);
+    setPdfBlob(null);
+  };
+
+  const handleClearFile = () => {
+    setSelectedFile(null);
+    setError(null);
+    setPdfBlob(null);
+    setProcessingState({
+      step: "idle",
+      progress: 0,
+      message: "",
+    });
+  };
+
+  const handleProcess = async () => {
+    if (!selectedFile) return;
+
+    setError(null);
+    setPdfBlob(null);
+
+    try {
+      // Étape 1: Upload
+      setProcessingState({
+        step: "uploading",
+        progress: 10,
+        message: "Envoi du fichier...",
+      });
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      // Étape 2: Extraction
+      setProcessingState({
+        step: "extracting",
+        progress: 25,
+        message: "Extraction du contenu Word...",
+      });
+
+      // Étape 3: Correction (simulée pour le moment)
+      setProcessingState({
+        step: "correcting",
+        progress: 50,
+        message: "Correction orthographique avec IA...",
+      });
+
+      // Étape 4: Génération
+      setProcessingState({
+        step: "generating",
+        progress: 75,
+        message: "Génération du PDF professionnel...",
+      });
+
+      // Appel à l'API
+      const response = await fetch("/api/process", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur lors du traitement");
+      }
+
+      // Récupérer le PDF
+      const blob = await response.blob();
+      setPdfBlob(blob);
+
+      // Étape 5: Terminé
+      setProcessingState({
+        step: "completed",
+        progress: 100,
+        message: "Rapport traité avec succès !",
+      });
+    } catch (err) {
+      console.error("Erreur:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Une erreur est survenue lors du traitement"
+      );
+      setProcessingState({
+        step: "error",
+        progress: 0,
+        message: "",
+      });
+    }
+  };
+
+  const handleDownload = () => {
+    if (!pdfBlob) return;
+
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rapport_corrige_${new Date().toISOString().split("T")[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const isProcessing =
+    processingState.step !== "idle" &&
+    processingState.step !== "completed" &&
+    processingState.step !== "error";
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-[#F5F5F5]">
+      {/* En-tête */}
+      <header className="bg-[#0066CC] text-white py-6 shadow-md">
+        <div className="container mx-auto px-4">
+          <h1 className="text-3xl font-bold text-center">
+            LOCAMEX - Correcteur de Rapports
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-center mt-2 text-blue-100">
+            1er Réseau d'experts en recherche de fuites piscine
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Contenu principal */}
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Titre et description */}
+          <div className="text-center space-y-4">
+            <h2 className="text-2xl font-bold text-[#2C3E50]">
+              Transformez vos rapports Word en PDF professionnels
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Déposez votre rapport Word, nous corrigeons automatiquement
+              l'orthographe et la grammaire, puis générons un PDF avec la charte
+              graphique LOCAMEX.
+            </p>
+          </div>
+
+          {/* Zone d'upload */}
+          {!isProcessing && processingState.step !== "completed" && (
+            <>
+              <UploadZone
+                onFileSelect={handleFileSelect}
+                selectedFile={selectedFile}
+                onClearFile={handleClearFile}
+                disabled={isProcessing}
+              />
+
+              {selectedFile && (
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleProcess}
+                    size="lg"
+                    className="w-full max-w-md"
+                  >
+                    Traiter le rapport
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Barre de progression */}
+          {isProcessing && <ProcessingStatus state={processingState} />}
+
+          {/* Message d'erreur */}
+          {error && (
+            <Alert variant="error">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Erreur</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Succès et téléchargement */}
+          {processingState.step === "completed" && pdfBlob && (
+            <div className="space-y-6">
+              <Alert variant="success">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertTitle>Succès !</AlertTitle>
+                <AlertDescription>
+                  Votre rapport a été traité avec succès et est prêt à être
+                  téléchargé.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button onClick={handleDownload} size="lg" className="gap-2">
+                  <Download className="w-5 h-5" />
+                  Télécharger le PDF
+                </Button>
+                <Button
+                  onClick={handleClearFile}
+                  variant="secondary"
+                  size="lg"
+                >
+                  Traiter un autre rapport
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Afficher le bouton réessayer en cas d'erreur */}
+          {error && (
+            <div className="flex justify-center">
+              <Button onClick={handleClearFile} variant="secondary" size="lg">
+                Réessayer
+              </Button>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Pied de page */}
+      <footer className="bg-white border-t border-[#CCCCCC] mt-16 py-8">
+        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
+          <p>&copy; 2025 LOCAMEX - Tous droits réservés</p>
+          <p className="mt-2">
+            www.locamex.org | contact@locamex.org | +70 agences en Europe
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

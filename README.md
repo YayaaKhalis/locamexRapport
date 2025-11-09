@@ -1,36 +1,173 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LOCAMEX - Correcteur de Rapports Automatique
 
-## Getting Started
+Application web pour transformer automatiquement des rapports Word en PDFs professionnels avec correction orthographique et mise en page selon la charte graphique LOCAMEX.
 
-First, run the development server:
+## 🚀 Démarrage rapide
+
+### 1. Installation des dépendances
+
+```bash
+npm install
+```
+
+### 2. Lancer le serveur de développement
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+L'application sera accessible sur [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ✅ Fonctionnalités actuelles
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- ✅ Interface d'upload avec drag & drop
+- ✅ Validation des fichiers (.docx uniquement, max 10 MB)
+- ✅ Extraction du contenu Word (texte)
+- ✅ Génération de PDF professionnel avec charte graphique LOCAMEX
+- ✅ Barre de progression visuelle
+- ✅ Téléchargement instantané du PDF
+- ✅ Design responsive (mobile, tablette, desktop)
+- ✅ Messages en français
 
-## Learn More
+## 📋 Prochaine étape : Intégration OpenAI
 
-To learn more about Next.js, take a look at the following resources:
+### Configuration de l'API OpenAI
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Créez un compte sur [OpenAI Platform](https://platform.openai.com)
+2. Générez une clé API
+3. Ajoutez la clé dans le fichier `.env.local` :
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+OPENAI_API_KEY=sk-votre-clé-ici
+```
 
-## Deploy on Vercel
+### Installation du SDK OpenAI
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm install openai
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Fichiers à modifier pour l'intégration
+
+**1. `lib/word-extractor.ts`** - Remplacer la fonction `mockCorrectText` :
+
+```typescript
+import OpenAI from "openai";
+
+export async function correctTextWithAI(text: string): Promise<string> {
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4-turbo",
+    temperature: 0.3,
+    max_tokens: 4000,
+    messages: [
+      {
+        role: "system",
+        content: `Tu es un correcteur orthographique et grammatical pour des rapports techniques de piscine.
+
+RÈGLES STRICTES :
+- Corrige UNIQUEMENT l'orthographe et la grammaire
+- Ne JAMAIS modifier : dates, noms propres, adresses, chiffres, nombres
+- Utilise le vocabulaire technique exact : PVC armé, skimmer, bonde de fond, refoulement
+- Garde le ton professionnel
+- Ne supprime RIEN, ne rajoute RIEN
+- Respecte la structure originale
+
+Corrige le texte suivant :`,
+      },
+      {
+        role: "user",
+        content: text,
+      },
+    ],
+  });
+
+  return response.choices[0]?.message?.content || text;
+}
+```
+
+**2. `app/api/process/route.ts`** - Mettre à jour l'import et l'utilisation :
+
+```typescript
+import { extractWordContent, correctTextWithAI } from "@/lib/word-extractor";
+
+// Remplacer mockCorrectText par correctTextWithAI
+const correctedText = await correctTextWithAI(extractedData.text);
+```
+
+## 🎨 Charte graphique LOCAMEX
+
+Les couleurs sont configurées dans `app/globals.css` :
+
+- **Bleu principal** : `#0066CC`
+- **Bleu foncé** : `#004080`
+- **Cyan accent** : `#00A3E0`
+- **Gris clair** : `#F5F5F5`
+- **Texte foncé** : `#2C3E50`
+
+## 📂 Structure du projet
+
+```
+locamex/
+├── app/
+│   ├── api/
+│   │   └── process/
+│   │       └── route.ts          # API route pour traiter les fichiers
+│   ├── globals.css               # Styles globaux + couleurs LOCAMEX
+│   ├── layout.tsx                # Layout racine
+│   └── page.tsx                  # Page principale
+├── components/
+│   ├── ui/
+│   │   ├── alert.tsx             # Composant alerte
+│   │   ├── button.tsx            # Composant bouton
+│   │   └── card.tsx              # Composant carte
+│   ├── processing-status.tsx     # Barre de progression
+│   └── upload-zone.tsx           # Zone de drag & drop
+├── lib/
+│   ├── pdf-generator.ts          # Génération PDF avec jsPDF
+│   ├── utils.ts                  # Utilitaires
+│   └── word-extractor.ts         # Extraction Word + correction IA
+├── types/
+│   └── index.ts                  # Types TypeScript
+├── .env.local                    # Variables d'environnement (non versionné)
+├── CLAUDE.md                     # Documentation complète du projet
+└── package.json
+```
+
+## 🔧 Technologies utilisées
+
+- **Next.js 16** - Framework React
+- **TypeScript** - Typage statique
+- **Tailwind CSS** - Styling
+- **react-dropzone** - Upload de fichiers
+- **officeparser** - Extraction Word
+- **jsPDF + jsPDF-autoTable** - Génération PDF
+- **OpenAI GPT-4** - Correction orthographique (à intégrer)
+- **Lucide React** - Icônes
+
+## 🧪 Tests manuels recommandés
+
+1. **Upload basique** : Déposer un fichier .docx simple
+2. **Validation** : Essayer d'uploader un .pdf ou .txt (doit être rejeté)
+3. **Fichier volumineux** : Essayer un fichier > 10 MB (doit être rejeté)
+4. **Génération PDF** : Vérifier que le PDF contient le texte et respecte la charte
+
+## 🚀 Déploiement sur Vercel
+
+1. Pushez le code sur GitHub
+2. Connectez votre repo à [Vercel](https://vercel.com)
+3. Ajoutez la variable d'environnement `OPENAI_API_KEY` dans Vercel
+4. Déployez !
+
+## 📝 Notes importantes
+
+- Les fichiers uploadés ne sont JAMAIS sauvegardés (traitement en mémoire uniquement)
+- La correction IA ne modifie JAMAIS les dates, noms, chiffres, adresses
+- Le PDF généré respecte la charte graphique LOCAMEX
+
+## 📞 Contact
+
+Pour toute question : contact@locamex.org
