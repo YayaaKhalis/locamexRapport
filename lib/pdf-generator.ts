@@ -1,6 +1,8 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ReportData } from "@/types";
+import { ReportData, ImageData } from "@/types";
+import fs from "fs";
+import path from "path";
 
 // Couleurs LOCAMEX
 const COLORS = {
@@ -25,6 +27,132 @@ function hexToRgb(hex: string): [number, number, number] {
     : [0, 0, 0];
 }
 
+// Charger une image depuis le dossier public et la convertir en base64
+function loadImageAsBase64(imageName: string): string | null {
+  try {
+    const imagePath = path.join(process.cwd(), "public", imageName);
+    const imageBuffer = fs.readFileSync(imagePath);
+    const base64 = imageBuffer.toString("base64");
+    const ext = path.extname(imageName).toLowerCase();
+    const mimeType = ext === ".png" ? "image/png" : "image/jpeg";
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error(`Impossible de charger l'image ${imageName}:`, error);
+    return null;
+  }
+}
+
+// Types pour les sections structurées
+interface StructuredContent {
+  clientName: string;
+  reportDate: string;
+  intervention?: {
+    client: string;
+    adresse: string;
+    telephone: string;
+    email: string;
+    dateIntervention: string;
+    technicien: string;
+  };
+  descriptifTechnique?: string;
+  localTechnique?: string;
+  equipements?: Array<{ equipement: string; marque: string; modele: string }>;
+  testsCanalisations?: Array<{ test: string; resultat: string }>;
+  testsPiecesSceller?: string;
+  testsEtancheite?: string;
+  bilan?: string;
+  responsabilites?: string;
+  photos: ImageData[];
+}
+
+/**
+ * Parse le texte corrigé pour extraire les sections structurées
+ */
+function parseStructuredContent(
+  data: ReportData
+): StructuredContent {
+  const text = data.correctedText || data.originalText;
+  const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+
+  // Extraction basique - à améliorer selon le format réel
+  const content: StructuredContent = {
+    clientName: "Client",
+    reportDate: new Date().toLocaleDateString("fr-FR"),
+    photos: data.images || [],
+  };
+
+  // Utiliser le premier tableau pour les informations d'intervention si disponible
+  if (data.tables && data.tables.length > 0) {
+    const firstTable = data.tables[0];
+
+    // Si le tableau a 2 colonnes, c'est probablement le tableau d'intervention
+    if (firstTable.rows.length > 0 && firstTable.rows[0].length === 2) {
+      const tableData: Record<string, string> = {};
+      firstTable.rows.forEach(row => {
+        if (row.length === 2) {
+          tableData[row[0].toLowerCase()] = row[1];
+        }
+      });
+
+      content.intervention = {
+        client: tableData["client"] || tableData["nom"] || "N/A",
+        adresse: tableData["adresse"] || "N/A",
+        telephone: tableData["téléphone"] || tableData["telephone"] || "N/A",
+        email: tableData["email"] || tableData["e-mail"] || "N/A",
+        dateIntervention: tableData["date"] || tableData["date d'intervention"] || new Date().toLocaleDateString("fr-FR"),
+        technicien: tableData["technicien"] || tableData["intervenant"] || "N/A",
+      };
+
+      content.clientName = content.intervention.client;
+    }
+  }
+
+  // Sinon, chercher les informations dans le texte
+  if (!content.intervention) {
+    const interventionMatch = text.match(/Client\s*:?\s*([^\n]+)/i);
+    const adresseMatch = text.match(/Adresse\s*:?\s*([^\n]+)/i);
+    const telephoneMatch = text.match(/Téléphone\s*:?\s*([^\n]+)/i);
+    const emailMatch = text.match(/Email\s*:?\s*([^\n]+)/i);
+    const dateMatch = text.match(/Date\s*:?\s*([^\n]+)/i);
+    const technicienMatch = text.match(/Technicien\s*:?\s*([^\n]+)/i);
+
+    if (interventionMatch || adresseMatch) {
+      content.intervention = {
+        client: interventionMatch?.[1] || "N/A",
+        adresse: adresseMatch?.[1] || "N/A",
+        telephone: telephoneMatch?.[1] || "N/A",
+        email: emailMatch?.[1] || "N/A",
+        dateIntervention: dateMatch?.[1] || new Date().toLocaleDateString("fr-FR"),
+        technicien: technicienMatch?.[1] || "N/A",
+      };
+      content.clientName = interventionMatch?.[1] || "Client";
+    }
+  }
+
+  // Extraire les sections
+  const descriptifMatch = text.match(/DESCRIPTIF TECHNIQUE[:\s]*([^]+?)(?=LOCAL TECHNIQUE|ÉQUIPEMENTS|TESTS|BILAN|$)/i);
+  if (descriptifMatch) {
+    content.descriptifTechnique = descriptifMatch[1].trim();
+  }
+
+  const localMatch = text.match(/LOCAL TECHNIQUE[:\s]*([^]+?)(?=ÉQUIPEMENTS|TESTS|BILAN|$)/i);
+  if (localMatch) {
+    content.localTechnique = localMatch[1].trim();
+  }
+
+  const bilanMatch = text.match(/BILAN[:\s]*([^]+?)(?=RESPONSABILITÉS|PHOTOS|$)/i);
+  if (bilanMatch) {
+    content.bilan = bilanMatch[1].trim();
+  }
+
+  const responsabilitesMatch = text.match(/RESPONSABILITÉS[:\s]*([^]+?)(?=PHOTOS|$)/i);
+  if (responsabilitesMatch) {
+    content.responsabilites = responsabilitesMatch[1].trim();
+  }
+
+  return content;
+}
+
 /**
  * Génère un PDF professionnel avec la charte graphique LOCAMEX
  */
@@ -38,10 +166,12 @@ export function generatePDF(data: ReportData): Blob {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
+  let currentPage = 1;
 
-  let yPosition = margin;
+  // Parser le contenu structuré
+  const content = parseStructuredContent(data);
 
-  // Fonction pour ajouter l'en-tête sur chaque page
+  // Fonction pour ajouter l'en-tête LOCAMEX sur les pages intérieures
   const addHeader = () => {
     const [r, g, b] = hexToRgb(COLORS.blue);
     doc.setFillColor(r, g, b);
@@ -63,7 +193,7 @@ export function generatePDF(data: ReportData): Blob {
   };
 
   // Fonction pour ajouter le pied de page
-  const addFooter = (pageNumber: number) => {
+  const addFooter = (pageNum: number) => {
     const [r, g, b] = hexToRgb(COLORS.blue);
     doc.setDrawColor(r, g, b);
     doc.setLineWidth(0.5);
@@ -82,139 +212,399 @@ export function generatePDF(data: ReportData): Blob {
     );
 
     doc.text(
-      `www.locamex.org | contact@locamex.org | Page ${pageNumber}`,
+      `www.locamex.org | contact@locamex.org | Page ${pageNum}`,
       pageWidth / 2,
       pageHeight - 6,
       { align: "center" }
     );
   };
 
-  // Ajouter l'en-tête de la première page
+  // PAGE 1 : Hero Section avec image de fond
+  const heroImage = loadImageAsBase64("HeroSectionRapport.png");
+  if (heroImage) {
+    try {
+      doc.addImage(
+        heroImage,
+        "PNG",
+        0,
+        0,
+        pageWidth,
+        pageHeight
+      );
+
+      // Ajouter le nom du client et la date sur l'image
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text(content.clientName, pageWidth / 2, pageHeight / 2, {
+        align: "center",
+      });
+
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "normal");
+      doc.text(content.reportDate, pageWidth / 2, pageHeight / 2 + 10, {
+        align: "center",
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'ajout de l'image hero:", error);
+    }
+  } else {
+    // Fallback si l'image n'est pas disponible
+    const [br, bg, bb] = hexToRgb(COLORS.blue);
+    doc.setFillColor(br, bg, bb);
+    doc.rect(0, 0, pageWidth, pageHeight, "F");
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text(content.clientName, pageWidth / 2, pageHeight / 2, {
+      align: "center",
+    });
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "normal");
+    doc.text(content.reportDate, pageWidth / 2, pageHeight / 2 + 10, {
+      align: "center",
+    });
+  }
+
+  // PAGE 2+ : Contenu structuré
+  doc.addPage();
+  currentPage++;
   addHeader();
 
-  // Titre du rapport
-  yPosition = 25;
-  const [br, bg, bb] = hexToRgb(COLORS.blue);
-  doc.setTextColor(br, bg, bb);
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("Rapport d'Inspection", pageWidth / 2, yPosition, {
-    align: "center",
-  });
+  let yPosition = 25;
 
-  // Date de génération
-  yPosition += 8;
-  const [gr, gg, gb] = hexToRgb(COLORS.textDark);
-  doc.setTextColor(gr, gg, gb);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  const today = new Date().toLocaleDateString("fr-FR");
-  doc.text(`Généré le ${today}`, pageWidth / 2, yPosition, {
-    align: "center",
-  });
+  // Section INTERVENTION
+  if (content.intervention) {
+    const [br, bg, bb] = hexToRgb(COLORS.blue);
+    doc.setTextColor(br, bg, bb);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("INTERVENTION", margin, yPosition);
+    yPosition += 8;
 
-  yPosition += 15;
+    autoTable(doc, {
+      startY: yPosition,
+      head: [["Information", "Détails"]],
+      body: [
+        ["Client", content.intervention.client],
+        ["Adresse", content.intervention.adresse],
+        ["Téléphone", content.intervention.telephone],
+        ["Email", content.intervention.email],
+        ["Date d'intervention", content.intervention.dateIntervention],
+        ["Technicien", content.intervention.technicien],
+      ],
+      theme: "grid",
+      headStyles: {
+        fillColor: hexToRgb(COLORS.blue),
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+      },
+      bodyStyles: {
+        textColor: hexToRgb(COLORS.textDark),
+      },
+      alternateRowStyles: {
+        fillColor: hexToRgb(COLORS.grayLight),
+      },
+      margin: { left: margin, right: margin },
+    });
 
-  // Contenu principal
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
+    yPosition = (doc as any).lastAutoTable.finalY + 10;
+  }
 
-  // Diviser le texte en lignes pour respecter les marges
-  const textLines = doc.splitTextToSize(
-    data.correctedText || data.originalText,
-    pageWidth - 2 * margin
-  );
-
-  // Ajouter le texte ligne par ligne
-  for (let i = 0; i < textLines.length; i++) {
-    // Vérifier si on doit ajouter une nouvelle page
-    if (yPosition > pageHeight - 30) {
-      addFooter(1);
+  // Section DESCRIPTIF TECHNIQUE
+  if (content.descriptifTechnique) {
+    if (yPosition > pageHeight - 40) {
+      addFooter(currentPage);
       doc.addPage();
+      currentPage++;
       addHeader();
       yPosition = 25;
     }
 
-    doc.text(textLines[i], margin, yPosition);
-    yPosition += 6;
+    const [br, bg, bb] = hexToRgb(COLORS.blue);
+    doc.setTextColor(br, bg, bb);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("DESCRIPTIF TECHNIQUE", margin, yPosition);
+    yPosition += 8;
+
+    const [tr, tg, tb] = hexToRgb(COLORS.textDark);
+    doc.setTextColor(tr, tg, tb);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+
+    const lines = doc.splitTextToSize(
+      content.descriptifTechnique,
+      pageWidth - 2 * margin
+    );
+
+    for (const line of lines) {
+      if (yPosition > pageHeight - 30) {
+        addFooter(currentPage);
+        doc.addPage();
+        currentPage++;
+        addHeader();
+        yPosition = 25;
+      }
+      doc.text(line, margin, yPosition);
+      yPosition += 6;
+    }
+
+    yPosition += 5;
   }
 
-  // Ajouter les images s'il y en a
-  if (data.images && data.images.length > 0) {
+  // Section LOCAL TECHNIQUE
+  if (content.localTechnique) {
+    if (yPosition > pageHeight - 40) {
+      addFooter(currentPage);
+      doc.addPage();
+      currentPage++;
+      addHeader();
+      yPosition = 25;
+    }
+
+    const [br, bg, bb] = hexToRgb(COLORS.blue);
+    doc.setTextColor(br, bg, bb);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("LOCAL TECHNIQUE", margin, yPosition);
+    yPosition += 8;
+
+    const [tr, tg, tb] = hexToRgb(COLORS.textDark);
+    doc.setTextColor(tr, tg, tb);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+
+    const lines = doc.splitTextToSize(
+      content.localTechnique,
+      pageWidth - 2 * margin
+    );
+
+    for (const line of lines) {
+      if (yPosition > pageHeight - 30) {
+        addFooter(currentPage);
+        doc.addPage();
+        currentPage++;
+        addHeader();
+        yPosition = 25;
+      }
+      doc.text(line, margin, yPosition);
+      yPosition += 6;
+    }
+
+    yPosition += 5;
+  }
+
+  // Section BILAN (encadré bleu arrondi)
+  if (content.bilan) {
+    if (yPosition > pageHeight - 60) {
+      addFooter(currentPage);
+      doc.addPage();
+      currentPage++;
+      addHeader();
+      yPosition = 25;
+    }
+
+    const [br, bg, bb] = hexToRgb(COLORS.blue);
+    doc.setTextColor(br, bg, bb);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("BILAN", margin, yPosition);
+    yPosition += 8;
+
+    // Calculer la hauteur du contenu
+    const bilanLines = doc.splitTextToSize(
+      content.bilan,
+      pageWidth - 2 * margin - 10
+    );
+    const boxHeight = bilanLines.length * 6 + 10;
+
+    // Dessiner l'encadré bleu avec coins arrondis
+    const [lr, lg, lb] = hexToRgb(COLORS.blue);
+    doc.setDrawColor(lr, lg, lb);
+    doc.setLineWidth(1);
+    doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, boxHeight, 3, 3, "S");
+
+    // Remplissage léger
+    doc.setFillColor(240, 247, 255);
+    doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, boxHeight, 3, 3, "F");
+
+    // Contour bleu
+    doc.setDrawColor(lr, lg, lb);
+    doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, boxHeight, 3, 3, "S");
+
+    yPosition += 8;
+
+    const [tr, tg, tb] = hexToRgb(COLORS.textDark);
+    doc.setTextColor(tr, tg, tb);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+
+    for (const line of bilanLines) {
+      doc.text(line, margin + 5, yPosition);
+      yPosition += 6;
+    }
+
+    yPosition += 10;
+  }
+
+  // Section RESPONSABILITÉS
+  if (content.responsabilites) {
+    if (yPosition > pageHeight - 40) {
+      addFooter(currentPage);
+      doc.addPage();
+      currentPage++;
+      addHeader();
+      yPosition = 25;
+    }
+
+    const [br, bg, bb] = hexToRgb(COLORS.blue);
+    doc.setTextColor(br, bg, bb);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("RESPONSABILITÉS", margin, yPosition);
+    yPosition += 8;
+
+    const [tr, tg, tb] = hexToRgb(COLORS.textDark);
+    doc.setTextColor(tr, tg, tb);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+
+    const lines = doc.splitTextToSize(
+      content.responsabilites,
+      pageWidth - 2 * margin
+    );
+
+    for (const line of lines) {
+      if (yPosition > pageHeight - 30) {
+        addFooter(currentPage);
+        doc.addPage();
+        currentPage++;
+        addHeader();
+        yPosition = 25;
+      }
+      doc.text(line, margin, yPosition);
+      yPosition += 5;
+    }
+
+    yPosition += 5;
+  }
+
+  // Section PHOTOS
+  if (content.photos && content.photos.length > 0) {
+    addFooter(currentPage);
+    doc.addPage();
+    currentPage++;
+    addHeader();
+    yPosition = 25;
+
+    const [br, bg, bb] = hexToRgb(COLORS.blue);
+    doc.setTextColor(br, bg, bb);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("PHOTOS", margin, yPosition);
     yPosition += 10;
 
-    data.images.forEach((image, index) => {
-      // Vérifier si on a assez de place
-      if (yPosition > pageHeight - 80) {
-        addFooter(1);
+    // Layout intelligent des images
+    const largeImageThreshold = 500 * 1024; // 500KB
+    let smallImages: ImageData[] = [];
+
+    for (let i = 0; i < content.photos.length; i++) {
+      const image = content.photos[i];
+      const imageSize = image.base64.length * 0.75; // Approximation de la taille
+
+      if (imageSize > largeImageThreshold) {
+        // Grande image : 1 par page
         doc.addPage();
+        currentPage++;
         addHeader();
         yPosition = 25;
+
+        try {
+          const imgDataUrl = `data:${image.contentType || "image/png"};base64,${image.base64}`;
+          const maxWidth = pageWidth - 2 * margin;
+          const maxHeight = pageHeight - 60;
+          doc.addImage(imgDataUrl, "PNG", margin, yPosition, maxWidth, 0);
+
+          yPosition += maxHeight;
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "italic");
+          const [gr, gg, gb] = hexToRgb(COLORS.textDark);
+          doc.setTextColor(gr, gg, gb);
+          doc.text(`Photo ${i + 1}`, pageWidth / 2, yPosition, {
+            align: "center",
+          });
+        } catch (error) {
+          console.error(`Erreur lors de l'ajout de l'image ${i + 1}:`, error);
+        }
+      } else {
+        // Petite image : accumuler pour layout 2x2
+        smallImages.push(image);
+
+        if (smallImages.length === 4 || i === content.photos.length - 1) {
+          // Ajouter une page pour le grid 2x2
+          if (smallImages.length > 0) {
+            doc.addPage();
+            currentPage++;
+            addHeader();
+
+            const gridSize = 80;
+            const spacing = 10;
+            const positions = [
+              { x: margin, y: 30 },
+              { x: pageWidth / 2 + spacing / 2, y: 30 },
+              { x: margin, y: 30 + gridSize + spacing },
+              { x: pageWidth / 2 + spacing / 2, y: 30 + gridSize + spacing },
+            ];
+
+            smallImages.forEach((img, idx) => {
+              if (idx < 4) {
+                try {
+                  const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
+                  doc.addImage(
+                    imgDataUrl,
+                    "PNG",
+                    positions[idx].x,
+                    positions[idx].y,
+                    gridSize,
+                    gridSize
+                  );
+                } catch (error) {
+                  console.error(`Erreur lors de l'ajout de l'image:`, error);
+                }
+              }
+            });
+
+            smallImages = [];
+          }
+        }
       }
-
-      try {
-        // Ajouter l'image (max 80mm de large)
-        const maxWidth = 80;
-        const imgDataUrl = `data:${image.contentType || "image/png"};base64,${image.base64}`;
-
-        doc.addImage(imgDataUrl, "PNG", margin, yPosition, maxWidth, 0);
-
-        // Ajouter une légende
-        yPosition += 60; // Estimation de la hauteur de l'image
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "italic");
-        const [gr, gg, gb] = hexToRgb(COLORS.textDark);
-        doc.setTextColor(gr, gg, gb);
-        doc.text(`Photo ${index + 1}`, pageWidth / 2, yPosition, {
-          align: "center",
-        });
-        yPosition += 10;
-      } catch (error) {
-        console.error(`Erreur lors de l'ajout de l'image ${index + 1}:`, error);
-      }
-    });
+    }
   }
 
-  // Ajouter les tableaux s'il y en a
-  if (data.tables && data.tables.length > 0) {
-    yPosition += 5;
+  // Ajouter le footer sur la dernière page de contenu
+  addFooter(currentPage);
 
-    data.tables.forEach((table, index) => {
-      if (yPosition > pageHeight - 50) {
-        addFooter(1);
-        doc.addPage();
-        addHeader();
-        yPosition = 25;
-      }
-
-      const [hbr, hbg, hbb] = hexToRgb(COLORS.blue);
-
-      autoTable(doc, {
-        startY: yPosition,
-        head: [table.headers],
-        body: table.rows,
-        theme: "grid",
-        headStyles: {
-          fillColor: [hbr, hbg, hbb],
-          textColor: [255, 255, 255],
-          fontStyle: "bold",
-          halign: "center",
-        },
-        bodyStyles: {
-          textColor: hexToRgb(COLORS.textDark),
-        },
-        alternateRowStyles: {
-          fillColor: hexToRgb(COLORS.grayLight),
-        },
-        margin: { left: margin, right: margin },
-      });
-
-      yPosition = (doc as any).lastAutoTable.finalY + 10;
-    });
+  // DERNIÈRE PAGE : pagedefin.png
+  const finalImage = loadImageAsBase64("pagedefin.png");
+  if (finalImage) {
+    try {
+      doc.addPage();
+      doc.addImage(
+        finalImage,
+        "PNG",
+        0,
+        0,
+        pageWidth,
+        pageHeight
+      );
+    } catch (error) {
+      console.error("Erreur lors de l'ajout de l'image de fin:", error);
+    }
   }
-
-  // Ajouter le pied de page à la dernière page
-  addFooter(1);
 
   // Retourner le PDF en tant que Blob
   return doc.output("blob");

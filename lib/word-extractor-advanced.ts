@@ -3,6 +3,62 @@ import OpenAI from "openai";
 import { ExtractedData, ImageData, TableData } from "@/types";
 
 /**
+ * Extrait les tableaux HTML du contenu
+ */
+function extractTables(htmlContent: string): TableData[] {
+  const tables: TableData[] = [];
+  const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+  let tableMatch;
+
+  while ((tableMatch = tableRegex.exec(htmlContent)) !== null) {
+    const tableHtml = tableMatch[1];
+
+    // Extraire les en-têtes
+    const headers: string[] = [];
+    const headerRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
+    let headerMatch;
+    while ((headerMatch = headerRegex.exec(tableHtml)) !== null) {
+      const headerText = headerMatch[1].replace(/<[^>]+>/g, "").trim();
+      headers.push(headerText);
+    }
+
+    // Extraire les lignes
+    const rows: string[][] = [];
+    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    let rowMatch;
+
+    while ((rowMatch = rowRegex.exec(tableHtml)) !== null) {
+      const rowHtml = rowMatch[1];
+
+      // Skip si c'est la ligne d'en-tête
+      if (rowHtml.includes("<th")) continue;
+
+      const cells: string[] = [];
+      const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+      let cellMatch;
+
+      while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+        const cellText = cellMatch[1].replace(/<[^>]+>/g, "").trim();
+        cells.push(cellText);
+      }
+
+      if (cells.length > 0) {
+        rows.push(cells);
+      }
+    }
+
+    if (headers.length > 0 || rows.length > 0) {
+      tables.push({
+        headers: headers.length > 0 ? headers : rows[0] || [],
+        rows: headers.length > 0 ? rows : rows.slice(1),
+      });
+    }
+  }
+
+  return tables;
+}
+
+/**
  * Extrait le contenu avancé d'un fichier Word (texte, images, tableaux)
  */
 export async function extractWordContentAdvanced(
@@ -40,16 +96,26 @@ export async function extractWordContentAdvanced(
       });
     }
 
-    // Retirer les images du HTML pour avoir le texte pur
-    const textOnly = htmlContent
-      .replace(/<img[^>]*>/g, "")
-      .replace(/<[^>]+>/g, "") // Retirer toutes les balises HTML
-      .replace(/\s+/g, " ") // Normaliser les espaces
-      .trim();
+    // Extraire les tableaux HTML
+    const tables = extractTables(htmlContent);
 
-    // Parser les tableaux (simplifié)
-    // Nous pourrions améliorer ceci pour extraire de vrais tableaux HTML
-    const tables: TableData[] = [];
+    // Retirer les images et tableaux du HTML pour avoir le texte pur
+    let textOnly = htmlContent
+      .replace(/<img[^>]*>/g, "")
+      .replace(/<table[^>]*>[\s\S]*?<\/table>/gi, ""); // Retirer les tableaux
+
+    // Convertir les balises HTML importantes en texte formaté
+    textOnly = textOnly
+      .replace(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/gi, "\n\n$1\n")
+      .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "$1\n")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, "$1")
+      .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, "$1")
+      .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, "$1")
+      .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, "$1")
+      .replace(/<[^>]+>/g, "") // Retirer toutes les autres balises HTML
+      .replace(/\n\s*\n\s*\n/g, "\n\n") // Normaliser les sauts de ligne multiples
+      .trim();
 
     return {
       text: textOnly,
