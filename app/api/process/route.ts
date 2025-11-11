@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractWordContentAdvanced } from "@/lib/word-extractor-advanced";
-import { generatePDFV2 } from "@/lib/pdf-generator-v2";
+import { generatePDFV2 } from "@/lib/pdf-generator-v3";
 import { analyzeAllImages } from "@/lib/image-analyzer";
 import { analyzeReportWithAI, validateRapportAnalyse } from "@/lib/report-analyzer";
 import { ReportDataV2 } from "@/types";
@@ -98,8 +98,8 @@ export async function POST(request: NextRequest) {
       originalTables: extractedData.tables,
     };
 
-    // Étape 4 : Génération du PDF professionnel v2 (basé sur le modèle LOCAMEX)
-    console.log("\n📑 ÉTAPE 4 : Génération du PDF professionnel v2...");
+    // Étape 4 : Génération du PDF professionnel v3 (nouvelle structure)
+    console.log("\n📑 ÉTAPE 4 : Génération du PDF professionnel v3...");
 
     const pdfBlob = generatePDFV2(analyzedReport, analyzedImages);
 

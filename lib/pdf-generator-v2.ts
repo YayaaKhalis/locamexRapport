@@ -188,23 +188,71 @@ export function generatePDFV2(
   }
 
   // ===================
-  // PAGE 2 : Image après hero section
+  // PAGE 2 : Illustration des trois blocs
   // ===================
-  console.log("\n📄 Page 2: Image apresherosection");
+  console.log("\n📄 Page 2: Illustration des trois blocs");
   doc.addPage();
   currentPage++;
 
-  const apresHeroImage = loadImageAsBase64("apresherosection.png");
-  if (apresHeroImage) {
-    try {
-      doc.addImage(apresHeroImage, "PNG", 0, 0, pageWidth, pageHeight);
-      console.log("   ✓ Image apresherosection ajoutée");
-    } catch (error) {
-      console.error("Erreur lors de l'ajout de l'image apresherosection:", error);
-    }
-  } else {
-    console.warn("⚠️  Image apresherosection.png introuvable");
-  }
+  // Fond blanc
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageWidth, pageHeight, "F");
+
+  // Dimensions des blocs
+  const blockWidth = 50;
+  const blockHeight = 45;
+  const blockSpacing = 10;
+  const totalWidth = 3 * blockWidth + 2 * blockSpacing;
+  const startX = (pageWidth - totalWidth) / 2;
+  const startY = (pageHeight - blockHeight) / 2;
+  const cornerRadius = 5;
+
+  // Couleurs des blocs
+  const block1Color = hexToRgb("#5B949A"); // Bleu-vert foncé
+  const block2Color = hexToRgb("#7CAEB8"); // Bleu pâle
+  const block3Color = hexToRgb("#B6D1A3"); // Vert pâle
+
+  // Fonction pour dessiner un bloc arrondi avec texte
+  const drawRoundedBlock = (x: number, y: number, color: [number, number, number], text: string[]) => {
+    // Dessiner le rectangle arrondi
+    doc.setFillColor(...color);
+    doc.roundedRect(x, y, blockWidth, blockHeight, cornerRadius, cornerRadius, "F");
+
+    // Ajouter le texte centré (blanc)
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+
+    // Calculer la position Y pour centrer le texte verticalement
+    const lineHeight = 6;
+    const totalTextHeight = text.length * lineHeight;
+    let textY = y + (blockHeight - totalTextHeight) / 2 + lineHeight;
+
+    text.forEach((line) => {
+      doc.text(line, x + blockWidth / 2, textY, { align: "center" });
+      textY += lineHeight;
+    });
+  };
+
+  // Bloc 1 : Les informations générales
+  drawRoundedBlock(startX, startY, block1Color, [
+    "Les informations",
+    "générales"
+  ]);
+
+  // Bloc 2 : Plusieurs vues intégrées
+  drawRoundedBlock(startX + blockWidth + blockSpacing, startY, block2Color, [
+    "Plusieurs vues",
+    "intégrées"
+  ]);
+
+  // Bloc 3 : Un bilan général de l'inspection
+  drawRoundedBlock(startX + 2 * (blockWidth + blockSpacing), startY, block3Color, [
+    "Un bilan général",
+    "de l'inspection"
+  ]);
+
+  console.log("   ✓ Illustration des trois blocs créée");
 
   // ===================
   // PAGE 3 : Informations générales
