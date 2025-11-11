@@ -48,7 +48,7 @@ function addHeaderImage(doc: jsPDF, pageWidth: number): number {
   const headerImage = loadImageAsBase64("hautdepage.png");
   if (headerImage) {
     try {
-      const headerHeight = 25; // Taille augmentée pour visibilité
+      const headerHeight = 30; // Augmenté à 30mm pour meilleure visibilité et symétrie avec footer
       doc.addImage(headerImage, "PNG", 0, 0, pageWidth, headerHeight);
       console.log(`   ✓ Header ajouté (${headerHeight}mm)`);
       return headerHeight;
@@ -68,7 +68,7 @@ function addFooterImage(doc: jsPDF, pageWidth: number, pageHeight: number): numb
   const footerImage = loadImageAsBase64("pieddepage.png");
   if (footerImage) {
     try {
-      const footerHeight = 25; // Taille augmentée pour visibilité
+      const footerHeight = 35; // Augmenté de 25 à 35mm pour meilleure visibilité
       const footerY = pageHeight - footerHeight;
       doc.addImage(footerImage, "PNG", 0, footerY, pageWidth, footerHeight);
       console.log(`   ✓ Footer ajouté (${footerHeight}mm à y=${footerY})`);
@@ -153,16 +153,28 @@ function addRoundedImage(
   maxHeight: number,
   cornerRadius: number = 3
 ): { width: number; height: number } {
-  // Ajouter l'image en utilisant "contain" pour éviter l'étirement
-  // On utilise maxWidth mais on limite la hauteur pour garder le ratio
-  const imgWidth = maxWidth;
-  const imgHeight = maxHeight * 0.7; // Réduire la hauteur pour éviter l'étirement
+  // Calculer les dimensions réelles de l'image à partir du base64
+  // Pour préserver le ratio, on doit connaître les dimensions originales
+  const imgProps = doc.getImageProperties(imgDataUrl);
+  const imgOriginalWidth = imgProps.width;
+  const imgOriginalHeight = imgProps.height;
+  const aspectRatio = imgOriginalWidth / imgOriginalHeight;
 
-  // Ajouter l'image
-  doc.addImage(imgDataUrl, "PNG", x, y, imgWidth, imgHeight);
+  // Calculer les dimensions finales en préservant le ratio
+  let imgWidth = maxWidth;
+  let imgHeight = maxWidth / aspectRatio;
 
-  // Note: jsPDF ne supporte pas les images avec coins arrondis natifs
-  // On ne met pas de bordure pour un rendu plus propre
+  // Si la hauteur dépasse maxHeight, recalculer à partir de la hauteur
+  if (imgHeight > maxHeight) {
+    imgHeight = maxHeight;
+    imgWidth = maxHeight * aspectRatio;
+  }
+
+  // Centrer l'image horizontalement si elle est plus petite que maxWidth
+  const finalX = x + (maxWidth - imgWidth) / 2;
+
+  // Ajouter l'image avec les bonnes proportions
+  doc.addImage(imgDataUrl, "PNG", finalX, y, imgWidth, imgHeight);
 
   return { width: imgWidth, height: imgHeight };
 }
@@ -199,8 +211,8 @@ export function generatePDFV2(
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
-  const headerHeight = 25; // Hauteur standard du header (augmentée pour visibilité)
-  const footerHeight = 25; // Hauteur standard du footer (augmentée pour visibilité)
+  const headerHeight = 30; // Augmenté à 30mm pour meilleure visibilité
+  const footerHeight = 35; // Augmenté à 35mm pour meilleure visibilité (légèrement plus grand pour compenser la position)
   let yPos = 0;
 
   // ===================
@@ -304,14 +316,25 @@ export function generatePDFV2(
     try {
       const imgDataUrl = `data:${piscineImage.contentType || "image/png"};base64,${piscineImage.base64}`;
       const maxImgWidth = pageWidth - 2 * margin - 20;
-      const maxImgHeight = 80;
+      const maxImgHeight = 110; // Augmenté de 80 à 110
       const xPos = (pageWidth - maxImgWidth) / 2;
 
       const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
 
       yPos += dimensions.height + 5;
 
-      // Pas de légende pour l'image de la piscine (elle est évidente)
+      // Ajouter la description de l'image de la piscine
+      if (piscineImage.analysis?.description) {
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(...hexToRgb(COLORS.darkGray));
+        const captionLines = doc.splitTextToSize(piscineImage.analysis.description, maxImgWidth);
+        captionLines.forEach((line: string) => {
+          doc.text(line, pageWidth / 2, yPos, { align: "center" });
+          yPos += 5;
+        });
+        yPos += 3;
+      }
     } catch (error) {
       console.error("Erreur image piscine:", error);
     }
@@ -531,7 +554,7 @@ export function generatePDFV2(
       try {
         const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
         const maxImgWidth = pageWidth - 2 * margin - 20;
-        const maxImgHeight = 70;
+        const maxImgHeight = 100; // Augmenté de 70 à 100
         const xPos = (pageWidth - maxImgWidth) / 2;
 
         if (yPos + maxImgHeight + 15 > pageHeight - footerHeight - 10) {
@@ -544,7 +567,19 @@ export function generatePDFV2(
         const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
         yPos += dimensions.height + 5;
 
-        // Pas de légende pour les images du local technique
+        // Ajouter la description de l'image du local technique
+        if (img.analysis?.description) {
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(...hexToRgb(COLORS.darkGray));
+          const captionLines = doc.splitTextToSize(img.analysis.description, maxImgWidth);
+          captionLines.forEach((line: string) => {
+            doc.text(line, pageWidth / 2, yPos, { align: "center" });
+            yPos += 5;
+          });
+          yPos += 3;
+        }
+
         yPos += 5;
       } catch (error) {
         console.error(`Erreur image local ${index}:`, error);
@@ -679,37 +714,47 @@ export function generatePDFV2(
     yPos = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // Images liées aux tests - TOUTES les images non déjà utilisées
-  // Inclut manomètres, tests de pression, inspection, etc.
+  // Séparer les images : manomètres vs autres tests
   const usedImages = [...localImages];
   if (piscineImage) {
     usedImages.push(piscineImage);
   }
 
-  const testImages = images.filter(img => {
-    // Exclure les images déjà utilisées
-    if (usedImages.includes(img)) {
-      return false;
-    }
-    // Exclure uniquement les couvertures LOCAMEX
-    if (img.analysis?.type === 'couverture_rapport') {
-      return false;
-    }
-    // Inclure toutes les autres images
+  const allTestImages = images.filter(img => {
+    if (usedImages.includes(img)) return false;
+    if (img.analysis?.type === 'couverture_rapport') return false;
     return true;
   });
 
+  // Séparer les images de manomètres/pression des autres
+  const manometreImages = allTestImages.filter(img => {
+    const desc = img.analysis?.description?.toLowerCase() || "";
+    const type = img.analysis?.type?.toLowerCase() || "";
+    return desc.includes("manomètre") || desc.includes("pression") || type.includes("pression");
+  });
+
+  const otherTestImages = allTestImages.filter(img => !manometreImages.includes(img));
+
   console.log(`\n=== IMAGES POUR SECTION TESTS ===`);
   console.log(`Total images: ${images.length}`);
-  console.log(`Image piscine: ${piscineImage ? 1 : 0}`);
-  console.log(`Images local: ${localImages.length}`);
-  console.log(`Images tests: ${testImages.length}`);
-  console.log(`Images à afficher dans tests: ${testImages.length}`);
+  console.log(`Images manomètres: ${manometreImages.length}`);
+  console.log(`Autres images tests: ${otherTestImages.length}`);
 
-  if (testImages.length > 0) {
-    testImages.forEach((img, index) => {
+  // Section spéciale pour les manomètres (mise en pression)
+  if (manometreImages.length > 0) {
+    if (yPos > pageHeight - footerHeight - 60) {
+      doc.addPage();
+      addHeaderImage(doc, pageWidth);
+      addFooterImage(doc, pageWidth, pageHeight);
+      yPos = headerHeight + 10;
+    }
+
+    yPos = addPastelSubtitle(doc, "Mise en pression des canalisations", yPos, pageWidth, margin, COLORS.lightBlue);
+
+    // Afficher toutes les images de manomètres sans légende individuelle
+    manometreImages.forEach((img, index) => {
       try {
-        if (yPos > pageHeight - footerHeight - 90) {
+        if (yPos > pageHeight - footerHeight - 120) {
           doc.addPage();
           addHeaderImage(doc, pageWidth);
           addFooterImage(doc, pageWidth, pageHeight);
@@ -718,20 +763,46 @@ export function generatePDFV2(
 
         const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
         const maxImgWidth = pageWidth - 2 * margin - 20;
-        const maxImgHeight = 70;
+        const maxImgHeight = 100; // Augmenté pour les manomètres
+        const xPos = (pageWidth - maxImgWidth) / 2;
+
+        const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
+        yPos += dimensions.height + 8; // Plus d'espace entre les images
+
+        console.log(`   ✓ Image manomètre ${index + 1}/${manometreImages.length}`);
+      } catch (error) {
+        console.error(`   ❌ Erreur image manomètre ${index}:`, error);
+      }
+    });
+
+    yPos += 5;
+  }
+
+  // Autres images de tests avec descriptions
+  if (otherTestImages.length > 0) {
+    otherTestImages.forEach((img, index) => {
+      try {
+        if (yPos > pageHeight - footerHeight - 120) {
+          doc.addPage();
+          addHeaderImage(doc, pageWidth);
+          addFooterImage(doc, pageWidth, pageHeight);
+          yPos = headerHeight + 10;
+        }
+
+        const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
+        const maxImgWidth = pageWidth - 2 * margin - 20;
+        const maxImgHeight = 100; // Augmenté pour toutes les images
         const xPos = (pageWidth - maxImgWidth) / 2;
 
         const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
         yPos += dimensions.height + 3;
 
-        // Déterminer le nom du test depuis l'analyse de l'image
+        // Déterminer le nom du test
         let testName = "";
         const desc = img.analysis?.description?.toLowerCase() || "";
         const type = img.analysis?.type?.toLowerCase() || "";
 
-        if (desc.includes("manomètre") || desc.includes("pression") || type.includes("pression")) {
-          testName = "Test de pression";
-        } else if (desc.includes("skimmer") || type.includes("skimmer")) {
+        if (desc.includes("skimmer") || type.includes("skimmer")) {
           testName = "Test skimmer";
         } else if (desc.includes("bonde") || type.includes("bonde")) {
           testName = "Test bonde de fond";
@@ -743,23 +814,38 @@ export function generatePDFV2(
           testName = "Test fluorescéine";
         }
 
-        // Afficher le nom du test seulement s'il est identifié
+        // Afficher le nom du test en gras si identifié
         if (testName) {
           doc.setFontSize(11);
-          doc.setFont("helvetica", "normal");
+          doc.setFont("helvetica", "bold");
           doc.setTextColor(...hexToRgb(COLORS.darkGray));
           doc.text(testName, pageWidth / 2, yPos, { align: "center" });
           yPos += 6;
         }
 
+        // Toujours afficher la description complète de l'image
+        if (img.analysis?.description) {
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(...hexToRgb(COLORS.darkGray));
+          const captionLines = doc.splitTextToSize(img.analysis.description, maxImgWidth);
+          captionLines.forEach((line: string) => {
+            doc.text(line, pageWidth / 2, yPos, { align: "center" });
+            yPos += 5;
+          });
+          yPos += 3;
+        }
+
         yPos += 4;
 
-        console.log(`   ✓ Image ${index + 1}/${testImages.length}: ${testName || "sans légende"}`);
+        console.log(`   ✓ Image ${index + 1}/${otherTestImages.length}: ${testName || "sans légende"}`);
       } catch (error) {
         console.error(`   ❌ Erreur image test ${index}:`, error);
       }
     });
-  } else {
+  }
+
+  if (allTestImages.length === 0) {
     console.log(`   ⚠️  Aucune image pour la section tests`);
   }
 

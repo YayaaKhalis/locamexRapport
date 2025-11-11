@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { UploadZone } from "@/components/upload-zone";
 import { ProcessingStatus } from "@/components/processing-status";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, Download, AlertCircle } from "lucide-react";
+import { CheckCircle2, Download, AlertCircle, Sparkles, Zap, FileCheck, Palette } from "lucide-react";
 import { ProcessingState } from "@/types";
+import { BackgroundGradient } from "@/components/ui/background-gradient";
+import { GridPattern } from "@/components/ui/grid-pattern";
+import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
+import { TextGenerateEffect } from "@/components/ui/text-generate-effect";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
+import { MovingBorder } from "@/components/ui/moving-border";
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -41,54 +48,114 @@ export default function Home() {
     setError(null);
     setPdfBlob(null);
 
+    // Fonction pour simuler une progression fluide
+    const simulateProgress = (
+      startProgress: number,
+      endProgress: number,
+      duration: number
+    ): Promise<void> => {
+      return new Promise((resolve) => {
+        const steps = 20; // Nombre d'étapes pour la progression
+        const increment = (endProgress - startProgress) / steps;
+        const stepDuration = duration / steps;
+        let currentProgress = startProgress;
+        let currentStep = 0;
+
+        const interval = setInterval(() => {
+          currentStep++;
+          currentProgress += increment;
+
+          if (currentStep >= steps) {
+            clearInterval(interval);
+            resolve();
+          } else {
+            setProcessingState((prev) => ({
+              ...prev,
+              progress: Math.round(currentProgress),
+            }));
+          }
+        }, stepDuration);
+      });
+    };
+
     try {
-      // Étape 1: Upload
+      // Étape 1: Lecture du fichier (0% -> 15%)
       setProcessingState({
         step: "uploading",
-        progress: 10,
-        message: "Envoi du fichier...",
+        progress: 0,
+        message: "Lecture du fichier...",
       });
+      await simulateProgress(0, 15, 800);
+
+      // Étape 2: Extraction des données (15% -> 30%)
+      setProcessingState({
+        step: "extracting",
+        progress: 15,
+        message: "Extraction des données...",
+      });
+      await simulateProgress(15, 30, 800);
 
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      // Étape 2: Extraction
+      // Étape 3: Récupération des images (30% -> 45%)
       setProcessingState({
         step: "extracting",
-        progress: 25,
-        message: "Extraction du contenu Word...",
+        progress: 30,
+        message: "Récupération des images...",
       });
+      await simulateProgress(30, 45, 1000);
 
-      // Étape 3: Correction (simulée pour le moment)
+      // Étape 4: Correction des erreurs (45% -> 60%)
       setProcessingState({
         step: "correcting",
-        progress: 50,
-        message: "Correction orthographique avec IA...",
+        progress: 45,
+        message: "Correction des erreurs...",
       });
 
-      // Étape 4: Génération
-      setProcessingState({
-        step: "generating",
-        progress: 75,
-        message: "Génération du PDF professionnel...",
-      });
-
-      // Appel à l'API
-      const response = await fetch("/api/process", {
+      // Lancer la requête API en parallèle de la progression
+      const responsePromise = fetch("/api/process", {
         method: "POST",
         body: formData,
       });
+
+      await simulateProgress(45, 60, 1200);
+
+      // Étape 5: Amélioration du texte (60% -> 75%)
+      setProcessingState({
+        step: "correcting",
+        progress: 60,
+        message: "Amélioration du texte...",
+      });
+      await simulateProgress(60, 75, 1000);
+
+      // Étape 6: Génération du PDF (75% -> 90%)
+      setProcessingState({
+        step: "generating",
+        progress: 75,
+        message: "Génération du PDF...",
+      });
+      await simulateProgress(75, 90, 1000);
+
+      // Attendre la réponse de l'API si pas encore terminée
+      const response = await responsePromise;
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Erreur lors du traitement");
       }
 
-      // Récupérer le PDF
+      // Étape 7: Finalisation (90% -> 100%)
+      setProcessingState({
+        step: "generating",
+        progress: 90,
+        message: "Finalisation...",
+      });
+      await simulateProgress(90, 100, 600);
+
       const blob = await response.blob();
       setPdfBlob(blob);
 
-      // Étape 5: Terminé
       setProcessingState({
         step: "completed",
         progress: 100,
@@ -128,124 +195,193 @@ export default function Home() {
     processingState.step !== "error";
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5]">
-      {/* En-tête */}
-      <header className="bg-[#0066CC] text-white py-6 shadow-md">
-        <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-center">
-            LOCAMEX - Correcteur de Rapports
-          </h1>
-          <p className="text-center mt-2 text-blue-100">
-            1er Réseau d'experts en recherche de fuites piscine
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 relative overflow-hidden">
+      {/* Grid Pattern Background */}
+      <GridPattern
+        width={50}
+        height={50}
+        className="absolute inset-0 opacity-40"
+      />
+
+      {/* Gradient Orbs */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-[#5B949A]/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#B6D1A3]/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+      <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-[#7CAEB8]/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+
+      {/* Header */}
+      <header className="relative z-10 border-b border-slate-200/50 dark:border-slate-800/50 backdrop-blur-sm bg-white/50 dark:bg-slate-900/50">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex items-center gap-3"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5B949A] to-[#7CAEB8] flex items-center justify-center shadow-lg">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5B949A] to-[#7CAEB8] bg-clip-text text-transparent">
+                  LOCAMEX
+                </h1>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Expert en recherche de fuites
+                </p>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </header>
 
-      {/* Image après Hero Section */}
-      <div className="flex justify-center py-8 bg-white">
-        <img
-          src="/ApresHeroSection.png"
-          alt="LOCAMEX Services"
-          className="max-w-full h-auto object-contain"
-          style={{ maxWidth: "800px" }}
-        />
-      </div>
+      {/* Main Content */}
+      <main className="relative z-10 container mx-auto px-4 py-12">
+        <div className="max-w-6xl mx-auto space-y-16">
+          {/* Hero Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            className="text-center space-y-8 py-8"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#5B949A]/10 border border-[#5B949A]/20 mb-4">
+              <Sparkles className="w-4 h-4 text-[#5B949A]" />
+              <span className="text-sm font-medium text-[#5B949A]">
+                Propulsé par l'Intelligence Artificielle
+              </span>
+            </div>
 
-      {/* Contenu principal */}
-      <main className="container mx-auto px-4 py-12">
-        <div className="max-w-4xl mx-auto space-y-8">
-          {/* Titre et description */}
-          <div className="text-center space-y-4">
-            <h2 className="text-2xl font-bold text-[#2C3E50]">
-              Transformez vos rapports Word en PDF professionnels
+            <h2 className="text-4xl md:text-6xl font-bold leading-tight">
+              <span className="bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] bg-clip-text text-transparent">
+                Transformez vos rapports
+              </span>
+              <br />
+              <span className="text-3xl md:text-5xl text-slate-800 dark:text-slate-200">
+                en PDF professionnels
+              </span>
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Déposez votre rapport Word, nous corrigeons automatiquement
-              l'orthographe et la grammaire, puis générons un PDF avec la charte
-              graphique LOCAMEX.
+
+            <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+              Correction automatique IA • Mise en page parfaite • Branding LOCAMEX
             </p>
-          </div>
+          </motion.div>
 
-          {/* Zone d'upload */}
+          {/* Upload Zone - Direct */}
           {!isProcessing && processingState.step !== "completed" && (
-            <>
-              <UploadZone
-                onFileSelect={handleFileSelect}
-                selectedFile={selectedFile}
-                onClearFile={handleClearFile}
-                disabled={isProcessing}
-              />
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="flex justify-center"
+            >
+              <BackgroundGradient className="rounded-[32px] max-w-4xl w-full p-10 bg-white dark:bg-zinc-900">
+                <UploadZone
+                  onFileSelect={handleFileSelect}
+                  selectedFile={selectedFile}
+                  onClearFile={handleClearFile}
+                  disabled={isProcessing}
+                />
 
-              {selectedFile && (
-                <div className="flex justify-center">
-                  <Button
-                    onClick={handleProcess}
-                    size="lg"
-                    className="w-full max-w-md"
+                {selectedFile && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-center mt-8"
                   >
-                    Traiter le rapport
-                  </Button>
-                </div>
-              )}
-            </>
+                    <ShimmerButton
+                      onClick={handleProcess}
+                      className="w-full max-w-md"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      Traiter le rapport
+                    </ShimmerButton>
+                  </motion.div>
+                )}
+              </BackgroundGradient>
+            </motion.div>
           )}
 
-          {/* Barre de progression */}
-          {isProcessing && <ProcessingStatus state={processingState} />}
+          {/* Processing Status */}
+          {isProcessing && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="max-w-2xl mx-auto"
+            >
+              <MovingBorder borderRadius="1.5rem" duration={3000}>
+                <ProcessingStatus state={processingState} />
+              </MovingBorder>
+            </motion.div>
+          )}
 
-          {/* Message d'erreur */}
+          {/* Error Alert */}
           {error && (
-            <Alert variant="error">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Erreur</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Succès et téléchargement */}
-          {processingState.step === "completed" && pdfBlob && (
-            <div className="space-y-6">
-              <Alert variant="success">
-                <CheckCircle2 className="h-4 w-4" />
-                <AlertTitle>Succès !</AlertTitle>
-                <AlertDescription>
-                  Votre rapport a été traité avec succès et est prêt à être
-                  téléchargé.
-                </AlertDescription>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Alert variant="error" className="border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Erreur</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button onClick={handleDownload} size="lg" className="gap-2">
-                  <Download className="w-5 h-5" />
-                  Télécharger le PDF
-                </Button>
-                <Button
-                  onClick={handleClearFile}
-                  variant="secondary"
-                  size="lg"
-                >
-                  Traiter un autre rapport
+              <div className="flex justify-center mt-6">
+                <Button onClick={handleClearFile} variant="secondary" size="lg">
+                  Réessayer
                 </Button>
               </div>
-            </div>
+            </motion.div>
           )}
 
-          {/* Afficher le bouton réessayer en cas d'erreur */}
-          {error && (
-            <div className="flex justify-center">
-              <Button onClick={handleClearFile} variant="secondary" size="lg">
-                Réessayer
-              </Button>
-            </div>
+          {/* Success State */}
+          {processingState.step === "completed" && pdfBlob && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-8"
+            >
+              <BackgroundGradient className="rounded-[32px] p-8">
+                <Alert variant="success" className="border-green-500/50 bg-green-50/50 dark:bg-green-950/20">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertTitle>Succès !</AlertTitle>
+                  <AlertDescription>
+                    Votre rapport a été traité avec succès et est prêt à être téléchargé.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+                  <ShimmerButton onClick={handleDownload} className="gap-2">
+                    <Download className="w-5 h-5" />
+                    Télécharger le PDF
+                  </ShimmerButton>
+                  <Button
+                    onClick={handleClearFile}
+                    variant="secondary"
+                    size="lg"
+                    className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+                  >
+                    Traiter un autre rapport
+                  </Button>
+                </div>
+              </BackgroundGradient>
+            </motion.div>
           )}
         </div>
       </main>
 
-      {/* Pied de page */}
-      <footer className="bg-white border-t border-[#CCCCCC] mt-16 py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
-          <p>&copy; 2025 LOCAMEX - Tous droits réservés</p>
-          <p className="mt-2">
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-slate-200/50 dark:border-slate-800/50 backdrop-blur-sm bg-white/50 dark:bg-slate-900/50 mt-24 py-12">
+        <div className="container mx-auto px-4 text-center">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#5B949A] to-[#7CAEB8] flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-slate-800 dark:text-slate-200">LOCAMEX</span>
+          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+            &copy; 2025 LOCAMEX - Tous droits réservés
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-500">
             www.locamex.org | contact@locamex.org | +70 agences en Europe
           </p>
         </div>
