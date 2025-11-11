@@ -141,6 +141,16 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Image après Hero Section */}
+      <div className="flex justify-center py-8 bg-white">
+        <img
+          src="/ApresHeroSection.png"
+          alt="LOCAMEX Services"
+          className="max-w-full h-auto object-contain"
+          style={{ maxWidth: "800px" }}
+        />
+      </div>
+
       {/* Contenu principal */}
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
