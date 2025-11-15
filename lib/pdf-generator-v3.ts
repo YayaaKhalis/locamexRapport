@@ -441,8 +441,9 @@ export function generatePDFV2(
 
   yPos = addPastelSectionTitle(doc, "DESCRIPTIF TECHNIQUE", yPos, pageWidth, margin, COLORS.lightGreen);
 
-  const descriptionText = `Le revêtement est de type : ${rapport.piscine.revetement.type || "-"}.\nÂge : ${rapport.piscine.revetement.age || "-"}\n\nLa filtration est de type : ${rapport.piscine.filtration.type || "-"}`;
-  const etatText = `Remplissage : ${rapport.piscine.etat_des_lieux.remplissage || "-"}\n\nÉtat de l'eau : ${rapport.piscine.etat_des_lieux.etat_eau || "-"}`;
+  // Améliorer l'espacement avec des sauts de ligne supplémentaires
+  const descriptionText = `Le revêtement est de type : ${rapport.piscine.revetement.type || "-"}.\n\nÂge : ${rapport.piscine.revetement.age || "-"}\n\n\nLa filtration est de type : ${rapport.piscine.filtration.type || "-"}`;
+  const etatText = `Remplissage : ${rapport.piscine.etat_des_lieux.remplissage || "-"}\n\n\nÉtat de l'eau : ${rapport.piscine.etat_des_lieux.etat_eau || "-"}`;
 
   yPos = addPastelSubtitle(doc, "Description & État des lieux", yPos, pageWidth, margin, COLORS.lightBlue);
 
@@ -461,6 +462,9 @@ export function generatePDFV2(
     bodyStyles: {
       textColor: hexToRgb(COLORS.darkGray),
       fontSize: 11,
+      cellPadding: 6, // Plus d'espacement dans les cellules
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1,
     },
     margin: { left: margin, right: margin },
   });
