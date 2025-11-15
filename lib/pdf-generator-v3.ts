@@ -174,7 +174,7 @@ function addRoundedImage(
   const finalX = x + (maxWidth - imgWidth) / 2;
 
   // Ajouter l'image avec les bonnes proportions
-  doc.addImage(imgDataUrl, "PNG", finalX, y, imgWidth, imgHeight);
+  doc.addImage(imgDataUrl, "JPEG", finalX, y, imgWidth, imgHeight);
 
   return { width: imgWidth, height: imgHeight };
 }

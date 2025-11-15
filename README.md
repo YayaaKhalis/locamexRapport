@@ -29,74 +29,25 @@ L'application sera accessible sur [http://localhost:3000](http://localhost:3000)
 - ✅ Design responsive (mobile, tablette, desktop)
 - ✅ Messages en français
 
-## 📋 Prochaine étape : Intégration OpenAI
+## 🤖 Intelligence Artificielle : Claude 4.5 Sonnet
 
-### Configuration de l'API OpenAI
+L'application utilise **Claude 4.5 Sonnet** d'Anthropic pour :
+- ✅ Analyse et extraction du contenu des rapports
+- ✅ Correction orthographique et grammaticale
+- ✅ Analyse intelligente des images (Vision)
+- ✅ Classification et tri des photos
 
-1. Créez un compte sur [OpenAI Platform](https://platform.openai.com)
+### Configuration de l'API Anthropic
+
+1. Créez un compte sur [Anthropic Console](https://console.anthropic.com)
 2. Générez une clé API
 3. Ajoutez la clé dans le fichier `.env.local` :
 
 ```bash
-OPENAI_API_KEY=sk-votre-clé-ici
+ANTHROPIC_API_KEY=sk-ant-votre-clé-ici
 ```
 
-### Installation du SDK OpenAI
-
-```bash
-npm install openai
-```
-
-### Fichiers à modifier pour l'intégration
-
-**1. `lib/word-extractor.ts`** - Remplacer la fonction `mockCorrectText` :
-
-```typescript
-import OpenAI from "openai";
-
-export async function correctTextWithAI(text: string): Promise<string> {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4-turbo",
-    temperature: 0.3,
-    max_tokens: 4000,
-    messages: [
-      {
-        role: "system",
-        content: `Tu es un correcteur orthographique et grammatical pour des rapports techniques de piscine.
-
-RÈGLES STRICTES :
-- Corrige UNIQUEMENT l'orthographe et la grammaire
-- Ne JAMAIS modifier : dates, noms propres, adresses, chiffres, nombres
-- Utilise le vocabulaire technique exact : PVC armé, skimmer, bonde de fond, refoulement
-- Garde le ton professionnel
-- Ne supprime RIEN, ne rajoute RIEN
-- Respecte la structure originale
-
-Corrige le texte suivant :`,
-      },
-      {
-        role: "user",
-        content: text,
-      },
-    ],
-  });
-
-  return response.choices[0]?.message?.content || text;
-}
-```
-
-**2. `app/api/process/route.ts`** - Mettre à jour l'import et l'utilisation :
-
-```typescript
-import { extractWordContent, correctTextWithAI } from "@/lib/word-extractor";
-
-// Remplacer mockCorrectText par correctTextWithAI
-const correctedText = await correctTextWithAI(extractedData.text);
-```
+**Note** : La clé API est déjà configurée et l'intégration Claude est complète.
 
 ## 🎨 Charte graphique LOCAMEX
 
@@ -145,7 +96,7 @@ locamex/
 - **react-dropzone** - Upload de fichiers
 - **officeparser** - Extraction Word
 - **jsPDF + jsPDF-autoTable** - Génération PDF
-- **OpenAI GPT-4** - Correction orthographique (à intégrer)
+- **Anthropic Claude 4.5 Sonnet** - Analyse de texte et d'images avec IA
 - **Lucide React** - Icônes
 
 ## 🧪 Tests manuels recommandés
@@ -159,7 +110,7 @@ locamex/
 
 1. Pushez le code sur GitHub
 2. Connectez votre repo à [Vercel](https://vercel.com)
-3. Ajoutez la variable d'environnement `OPENAI_API_KEY` dans Vercel
+3. Ajoutez la variable d'environnement `ANTHROPIC_API_KEY` dans Vercel
 4. Déployez !
 
 ## 📝 Notes importantes

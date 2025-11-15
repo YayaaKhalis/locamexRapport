@@ -1,32 +1,28 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { ImageData, ImageAnalysis } from "@/types";
 
 /**
- * Analyse une image avec GPT-4 Vision pour déterminer son type, qualité et ordre d'affichage
+ * Analyse une image avec Claude 4.5 Sonnet Vision pour déterminer son type, qualité et ordre d'affichage
  */
 export async function analyzeImageWithVision(
   image: ImageData
 ): Promise<ImageAnalysis> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn("Clé API OpenAI manquante, analyse d'image impossible");
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.warn("Clé API Anthropic manquante, analyse d'image impossible");
       return getDefaultAnalysis();
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    const imageDataUrl = `data:${image.contentType || "image/png"};base64,${image.base64}`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // gpt-4o supporte vision
-      max_tokens: 300,
+    // Claude accepte les images en base64 directement
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929", // Claude Sonnet 4.5 avec vision
+      max_tokens: 500,
       temperature: 0.2,
-      messages: [
-        {
-          role: "system",
-          content: `Tu es un expert en analyse de photos de rapports d'inspection de piscines pour LOCAMEX.
+      system: `Tu es un expert en analyse de photos de rapports d'inspection de piscines pour LOCAMEX.
 
 Analyse chaque photo et retourne UNIQUEMENT un objet JSON avec cette structure EXACTE :
 {
@@ -60,15 +56,16 @@ IMPORTANT : Si l'image contient uniquement le logo LOCAMEX, du texte promotionne
 - description : max 60 caractères, en français, technique et précis, style professionnel
 
 Ne retourne QUE le JSON, rien d'autre.`,
-        },
+      messages: [
         {
           role: "user",
           content: [
             {
-              type: "image_url",
-              image_url: {
-                url: imageDataUrl,
-                detail: "low", // Pour réduire les coûts
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: (image.contentType || "image/png") as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                data: image.base64,
               },
             },
             {
@@ -80,10 +77,10 @@ Ne retourne QUE le JSON, rien d'autre.`,
       ],
     });
 
-    const content = response.choices[0]?.message?.content;
+    const content = response.content[0]?.type === "text" ? response.content[0].text : null;
 
     if (!content) {
-      console.warn("Aucune réponse de GPT-4 Vision");
+      console.warn("Aucune réponse de Claude Vision");
       return getDefaultAnalysis();
     }
 
@@ -133,7 +130,7 @@ export async function analyzeAllImages(
     return images;
   }
 
-  console.log(`Analyse de ${images.length} images avec GPT-4 Vision...`);
+  console.log(`Analyse de ${images.length} images avec Claude Vision...`);
 
   const analyzedImages: ImageData[] = [];
 
@@ -164,7 +161,7 @@ export async function analyzeAllImages(
 }
 
 /**
- * Retourne une analyse par défaut si GPT-4 Vision n'est pas disponible
+ * Retourne une analyse par défaut si Claude Vision n'est pas disponible
  */
 function getDefaultAnalysis(): ImageAnalysis {
   return {

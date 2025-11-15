@@ -1,6 +1,65 @@
 import mammoth from "mammoth";
-import OpenAI from "openai";
 import { ExtractedData, ImageData, TableData } from "@/types";
+import { createCanvas, loadImage } from "canvas";
+
+/**
+ * Compresse une image base64 en JPEG avec redimensionnement
+ * Réduit la taille du PDF en compressant les images
+ */
+async function compressImageBase64(
+  base64Data: string,
+  contentType: string,
+  maxWidth: number = 800,
+  quality: number = 0.6
+): Promise<{ base64: string; contentType: string }> {
+  try {
+    console.log(`      🔧 Compression tentée - Type: ${contentType}`);
+
+    // Reconstruire le data URL complet
+    const dataUrl = `data:${contentType};base64,${base64Data}`;
+
+    // Charger l'image
+    const img = await loadImage(dataUrl);
+    console.log(`      📐 Dimensions originales: ${img.width}x${img.height}px`);
+
+    // Calculer les nouvelles dimensions en gardant le ratio
+    let width = img.width;
+    let height = img.height;
+
+    if (width > maxWidth) {
+      const ratio = maxWidth / width;
+      width = maxWidth;
+      height = Math.round(height * ratio);
+    }
+
+    console.log(`      📐 Nouvelles dimensions: ${width}x${height}px`);
+
+    // Créer un canvas et dessiner l'image redimensionnée
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, width, height);
+
+    // Convertir en JPEG avec compression
+    const jpegBuffer = canvas.toBuffer('image/jpeg', { quality });
+
+    const originalSizeKB = Math.round(base64Data.length * 0.75 / 1024);
+    const newSizeKB = Math.round(jpegBuffer.length / 1024);
+    const reduction = Math.round((1 - jpegBuffer.length / (base64Data.length * 0.75)) * 100);
+
+    console.log(`      ✅ Compression réussie: ${originalSizeKB}KB → ${newSizeKB}KB (${reduction}% de réduction)`);
+
+    // Retourner en base64
+    return {
+      base64: jpegBuffer.toString('base64'),
+      contentType: 'image/jpeg'
+    };
+  } catch (error) {
+    console.error('      ❌ ERREUR compression image:', error);
+    console.error('      Stack:', (error as Error).stack);
+    // Retourner l'original en cas d'erreur
+    return { base64: base64Data, contentType };
+  }
+}
 
 /**
  * Extrait les tableaux HTML du contenu avec leur titre
@@ -206,6 +265,28 @@ export async function extractWordContentAdvanced(
 
     console.log(`✅ ${images.length} image(s) extraite(s)`);
 
+    // Compression des images
+    if (images.length > 0) {
+      console.log("\n🗜️  Compression des images...");
+      for (let i = 0; i < images.length; i++) {
+        const originalSize = images[i].base64.length;
+        console.log(`   Image ${i + 1}/${images.length}: Taille originale ~${(originalSize * 0.75 / 1024).toFixed(0)} KB`);
+
+        const compressed = await compressImageBase64(
+          images[i].base64,
+          images[i].contentType || "image/png"
+        );
+
+        images[i].base64 = compressed.base64;
+        images[i].contentType = compressed.contentType;
+
+        const newSize = images[i].base64.length;
+        const reduction = Math.round((1 - newSize / originalSize) * 100);
+        console.log(`   ✅ Compressée: ~${(newSize * 0.75 / 1024).toFixed(0)} KB (${reduction}% de réduction)`);
+      }
+      console.log(`✅ Compression terminée: ${images.length} image(s) optimisée(s)`);
+    }
+
     // Extraire les tableaux HTML
     console.log("\n📊 Extraction des tableaux...");
     const tables = extractTables(htmlContent);
@@ -255,104 +336,3 @@ export async function extractWordContentAdvanced(
   }
 }
 
-/**
- * Corrige le texte avec l'IA OpenAI GPT-4
- */
-export async function correctTextWithAI(text: string): Promise<string> {
-  try {
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn("Clé API OpenAI manquante, texte non corrigé");
-      return text;
-    }
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-turbo",
-      temperature: 0.2,
-      max_tokens: 4000,
-      messages: [
-        {
-          role: "system",
-          content: `Tu es un correcteur orthographique et grammatical EXPERT pour des rapports techniques de piscine pour l'entreprise LOCAMEX.
-
-RÈGLES STRICTES À RESPECTER ABSOLUMENT :
-
-1. CORRECTION ORTHOGRAPHIQUE ET GRAMMATICALE :
-   - Corrige TOUTES les fautes d'orthographe
-   - Corrige TOUTES les fautes de grammaire
-   - Corrige TOUS les accords (genre, nombre, verbes)
-   - Corrige la conjugaison des verbes
-
-2. ESPACEMENT ET PONCTUATION :
-   - Corrige TOUS les problèmes d'espacement entre les mots
-   - "aumoment" → "au moment"
-   - "àcet" → "à cet"
-   - "dela" → "de la"
-   - UN SEUL espace entre les mots (jamais double espace)
-   - UN SEUL espace après la ponctuation (. , ; : ! ?)
-   - AUCUN espace avant : . ,
-   - UN espace avant : ; : ! ?
-   - Enlève les espaces en trop en début/fin de ligne
-
-3. NE JAMAIS MODIFIER :
-   - Dates (06/11/2025, etc.)
-   - Noms propres (Cholat, Geoffrey GARDETTE, etc.)
-   - Adresses (248 Allée de garenne, 73230 Barby)
-   - Chiffres, nombres, quantités, mesures
-   - Titres de sections (DESCRIPTIF TECHNIQUE, BILAN, etc.)
-
-4. VOCABULAIRE TECHNIQUE EXACT LOCAMEX :
-   - PVC armé (jamais "PVC renforcé")
-   - Skimmer (jamais "écumeur")
-   - Bonde de fond
-   - Refoulement
-   - Pièces à sceller
-   - Mise en pression des canalisations
-   - Test d'étanchéité
-   - Injection de fluorescéine
-   - Test électro-induction
-   - Revêtement
-   - Liner
-   - Membrane armée
-
-5. FAUTES COURANTES À CORRIGER :
-   - "plies" → "plis"
-   - "constatée" → "constatés" (accords)
-   - "Aucun soucis" → "Aucun souci"
-   - "conformitée" → "conformité"
-   - "réalisée" → "réalisé" (accord selon contexte)
-
-6. AUTRES RÈGLES :
-   - Garde le ton professionnel et technique
-   - Ne supprime RIEN du texte original
-   - N'ajoute AUCUNE information qui n'était pas présente
-   - Respecte la structure originale du document
-   - Garde les sauts de ligne et la mise en forme
-
-EXIGENCE DE QUALITÉ : Le texte corrigé doit être PARFAIT, sans AUCUNE faute.
-
-Retourne UNIQUEMENT le texte corrigé, sans commentaire ni explication.`,
-        },
-        {
-          role: "user",
-          content: text,
-        },
-      ],
-    });
-
-    const correctedText = response.choices[0]?.message?.content;
-
-    if (!correctedText) {
-      console.warn("Aucune réponse de l'IA, texte non corrigé");
-      return text;
-    }
-
-    return correctedText;
-  } catch (error) {
-    console.error("Erreur lors de la correction IA:", error);
-    return text;
-  }
-}
