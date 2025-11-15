@@ -12,6 +12,7 @@ const COLORS = {
   white: "#FFFFFF",
   black: "#000000",
   darkGray: "#333333",
+  red: "#DC3545",         // Rouge pour non-conforme
 };
 
 // Convertir hex en RGB pour jsPDF
@@ -48,7 +49,7 @@ function addHeaderImage(doc: jsPDF, pageWidth: number): number {
   const headerImage = loadImageAsBase64("hautdepage.png");
   if (headerImage) {
     try {
-      const headerHeight = 30; // Augmenté à 30mm pour meilleure visibilité et symétrie avec footer
+      const headerHeight = 30; // 30mm pour meilleure visibilité
       doc.addImage(headerImage, "PNG", 0, 0, pageWidth, headerHeight);
       console.log(`   ✓ Header ajouté (${headerHeight}mm)`);
       return headerHeight;
@@ -62,13 +63,13 @@ function addHeaderImage(doc: jsPDF, pageWidth: number): number {
 }
 
 /**
- * Ajoute le footer image (pieddepage.png) en taille réelle
+ * Ajoute le footer image (pieddepage.png) - COMPLÈTEMENT VISIBLE
  */
 function addFooterImage(doc: jsPDF, pageWidth: number, pageHeight: number): number {
   const footerImage = loadImageAsBase64("pieddepage.png");
   if (footerImage) {
     try {
-      const footerHeight = 35; // Augmenté de 25 à 35mm pour meilleure visibilité
+      const footerHeight = 40; // Augmenté de 35 à 40mm pour être COMPLÈTEMENT visible
       const footerY = pageHeight - footerHeight;
       doc.addImage(footerImage, "PNG", 0, footerY, pageWidth, footerHeight);
       console.log(`   ✓ Footer ajouté (${footerHeight}mm à y=${footerY})`);
@@ -95,22 +96,19 @@ function addPastelSectionTitle(
 ): number {
   const [r, g, b] = hexToRgb(color);
   const titleHeight = 12;
-  const cornerRadius = 5; // Coins arrondis (en mm, équivalent ~25-35px)
+  const cornerRadius = 5;
 
-  // Rectangle arrondi avec fond pastel
   doc.setFillColor(r, g, b);
   doc.roundedRect(margin, yPosition, pageWidth - 2 * margin, titleHeight, cornerRadius, cornerRadius, "F");
 
-  // Texte blanc en majuscules, centré
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.text(title.toUpperCase(), pageWidth / 2, yPosition + 8, { align: "center" });
 
-  // Reset couleur texte
   doc.setTextColor(0, 0, 0);
 
-  return yPosition + titleHeight + 8; // Position après le titre + espacement augmenté
+  return yPosition + titleHeight + 8;
 }
 
 /**
@@ -138,7 +136,7 @@ function addPastelSubtitle(
 
   doc.setTextColor(0, 0, 0);
 
-  return yPosition + subtitleHeight + 6; // Espacement augmenté
+  return yPosition + subtitleHeight + 6;
 }
 
 /**
@@ -153,46 +151,46 @@ function addRoundedImage(
   maxHeight: number,
   cornerRadius: number = 3
 ): { width: number; height: number } {
-  // Calculer les dimensions réelles de l'image à partir du base64
-  // Pour préserver le ratio, on doit connaître les dimensions originales
   const imgProps = doc.getImageProperties(imgDataUrl);
   const imgOriginalWidth = imgProps.width;
   const imgOriginalHeight = imgProps.height;
   const aspectRatio = imgOriginalWidth / imgOriginalHeight;
 
-  // Calculer les dimensions finales en préservant le ratio
   let imgWidth = maxWidth;
   let imgHeight = maxWidth / aspectRatio;
 
-  // Si la hauteur dépasse maxHeight, recalculer à partir de la hauteur
   if (imgHeight > maxHeight) {
     imgHeight = maxHeight;
     imgWidth = maxHeight * aspectRatio;
   }
 
-  // Centrer l'image horizontalement si elle est plus petite que maxWidth
   const finalX = x + (maxWidth - imgWidth) / 2;
 
-  // Ajouter l'image avec les bonnes proportions
   doc.addImage(imgDataUrl, "JPEG", finalX, y, imgWidth, imgHeight);
 
   return { width: imgWidth, height: imgHeight };
 }
 
 /**
- * Génère un PDF professionnel LOCAMEX v3
- * Nouvelle structure selon les spécifications client
+ * Vérifie si un statut est non-conforme
+ */
+function isNonConforme(statut: string): boolean {
+  const s = statut.toLowerCase();
+  return s.includes("non conforme") || s.includes("non-conforme") || s.includes("défaut") || s.includes("fuite");
+}
+
+/**
+ * Génère un PDF professionnel LOCAMEX v3 - AMÉLIORÉ
  */
 export function generatePDFV2(
   rapport: RapportAnalyse,
   images: ImageData[]
 ): Blob {
-  console.log("\n=== GÉNÉRATION PDF PROFESSIONNELLE V3 ===");
+  console.log("\n=== GÉNÉRATION PDF PROFESSIONNELLE V3 (AMÉLIORÉE) ===");
   console.log(`Client: ${rapport.client.nom || "Non spécifié"}`);
   console.log(`Date inspection: ${rapport.inspection.date}`);
   console.log(`Nombre d'images reçues: ${images.length}`);
 
-  // Log des images pour debug
   if (images.length > 0) {
     console.log("\n📸 LISTE DES IMAGES:");
     images.forEach((img, idx) => {
@@ -211,9 +209,43 @@ export function generatePDFV2(
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
-  const headerHeight = 30; // Augmenté à 30mm pour meilleure visibilité
-  const footerHeight = 35; // Augmenté à 35mm pour meilleure visibilité (légèrement plus grand pour compenser la position)
+  const headerHeight = 30;
+  const footerHeight = 40; // Augmenté pour être COMPLÈTEMENT visible
   let yPos = 0;
+
+  // Classer les images par type/section
+  const imagesByType = {
+    piscine: images.filter(img =>
+      img.analysis?.type === "piscine" ||
+      img.analysis?.description?.toLowerCase().includes("piscine") ||
+      img.analysis?.description?.toLowerCase().includes("bassin") ||
+      img.analysis?.displayPriority === 1
+    ),
+    manometre: images.filter(img => {
+      const desc = img.analysis?.description?.toLowerCase() || "";
+      const type = img.analysis?.type?.toLowerCase() || "";
+      return desc.includes("manomètre") || desc.includes("pression") ||
+             type.includes("manometre") || type.includes("pression");
+    }),
+    localTechnique: images.filter(img =>
+      img.analysis?.type === "local_technique" ||
+      img.analysis?.description?.toLowerCase().includes("local") ||
+      img.analysis?.description?.toLowerCase().includes("filtre") ||
+      img.analysis?.description?.toLowerCase().includes("pompe")
+    ),
+    equipement: images.filter(img =>
+      img.analysis?.type === "equipement" ||
+      img.analysis?.description?.toLowerCase().includes("skimmer") ||
+      img.analysis?.description?.toLowerCase().includes("bonde") ||
+      img.analysis?.description?.toLowerCase().includes("refoulement")
+    ),
+  };
+
+  console.log("\n=== CLASSIFICATION DES IMAGES ===");
+  console.log(`Piscine: ${imagesByType.piscine.length}`);
+  console.log(`Manomètre: ${imagesByType.manometre.length}`);
+  console.log(`Local technique: ${imagesByType.localTechnique.length}`);
+  console.log(`Équipement: ${imagesByType.equipement.length}`);
 
   // ===================
   // PAGE 1 : Hero Section
@@ -224,7 +256,6 @@ export function generatePDFV2(
     try {
       doc.addImage(heroImage, "PNG", 0, 0, pageWidth, pageHeight);
 
-      // Ajouter le nom du client et la date
       const offsetY = 7;
       const [blueR, blueG, blueB] = hexToRgb(COLORS.darkTeal);
       doc.setTextColor(blueR, blueG, blueB);
@@ -263,7 +294,6 @@ export function generatePDFV2(
   console.log("\n📄 Page 2: 3 blocs + Image piscine");
   doc.addPage();
 
-  // Fond blanc
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pageWidth, pageHeight, "F");
 
@@ -305,25 +335,20 @@ export function generatePDFV2(
   // --- IMAGE GLOBALE DE LA PISCINE ---
   yPos = startY + blockHeight + 20;
 
-  // Trouver la première image de piscine (vue globale)
-  const piscineImage = images.find(img =>
-    img.analysis?.type === "piscine_vue_ensemble" ||
-    img.analysis?.type === "piscine_generale" ||
-    img.analysis?.displayPriority === 1
-  ) || images[0]; // Prendre la première si pas trouvée
+  const piscineImage = imagesByType.piscine[0];
 
   if (piscineImage) {
     try {
       const imgDataUrl = `data:${piscineImage.contentType || "image/png"};base64,${piscineImage.base64}`;
       const maxImgWidth = pageWidth - 2 * margin - 20;
-      const maxImgHeight = 110; // Augmenté de 80 à 110
+      const maxImgHeight = 110;
       const xPos = (pageWidth - maxImgWidth) / 2;
 
       const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
 
       yPos += dimensions.height + 5;
 
-      // Ajouter la description de l'image de la piscine
+      // Description de l'image de piscine
       if (piscineImage.analysis?.description) {
         doc.setFontSize(11);
         doc.setFont("helvetica", "italic");
@@ -345,7 +370,7 @@ export function generatePDFV2(
   // ===================
   console.log("\n📄 Pages suivantes: Sections du rapport");
 
-  // --- NOUVELLE PAGE : INTERVENTION ---
+  // --- INTERVENTION ---
   doc.addPage();
   addHeaderImage(doc, pageWidth);
   addFooterImage(doc, pageWidth, pageHeight);
@@ -353,7 +378,6 @@ export function generatePDFV2(
 
   yPos = addPastelSectionTitle(doc, "INTERVENTION", yPos, pageWidth, margin, COLORS.lightGreen);
 
-  // Tableau informations client
   autoTable(doc, {
     startY: yPos,
     head: [["Information", "Détails"]],
@@ -409,9 +433,7 @@ export function generatePDFV2(
     });
   }
 
-  yPos += 8; // Espace après services effectués
-
-  // --- NOUVELLE PAGE : DESCRIPTIF TECHNIQUE ---
+  // --- DESCRIPTIF TECHNIQUE ---
   doc.addPage();
   addHeaderImage(doc, pageWidth);
   addFooterImage(doc, pageWidth, pageHeight);
@@ -419,7 +441,6 @@ export function generatePDFV2(
 
   yPos = addPastelSectionTitle(doc, "DESCRIPTIF TECHNIQUE", yPos, pageWidth, margin, COLORS.lightGreen);
 
-  // Tableau Description & État des lieux
   const descriptionText = `Le revêtement est de type : ${rapport.piscine.revetement.type || "-"}.\nÂge : ${rapport.piscine.revetement.age || "-"}\n\nLa filtration est de type : ${rapport.piscine.filtration.type || "-"}`;
   const etatText = `Remplissage : ${rapport.piscine.etat_des_lieux.remplissage || "-"}\n\nÉtat de l'eau : ${rapport.piscine.etat_des_lieux.etat_eau || "-"}`;
 
@@ -492,7 +513,6 @@ export function generatePDFV2(
 
   yPos = (doc as any).lastAutoTable.finalY + 10;
 
-  // Texte descriptif technique
   if (rapport.observations_techniques?.descriptif_technique) {
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
@@ -515,7 +535,7 @@ export function generatePDFV2(
     });
   }
 
-  // --- NOUVELLE PAGE : LOCAL TECHNIQUE ---
+  // --- LOCAL TECHNIQUE ---
   doc.addPage();
   addHeaderImage(doc, pageWidth);
   addFooterImage(doc, pageWidth, pageHeight);
@@ -539,55 +559,71 @@ export function generatePDFV2(
     yPos += 10;
   }
 
-  // Images du local technique
-  const localImages = images.filter(img =>
-    img.analysis?.type === "local_technique" ||
-    img.analysis?.description?.toLowerCase().includes("local") ||
-    img.analysis?.description?.toLowerCase().includes("technique") ||
-    img.analysis?.description?.toLowerCase().includes("filtre") ||
-    img.analysis?.description?.toLowerCase().includes("pompe")
-  );
+  // Images du local technique - REGROUPÉES
+  if (imagesByType.localTechnique.length > 0) {
+    console.log(`   ${imagesByType.localTechnique.length} image(s) du local technique`);
 
-  if (localImages.length > 0) {
-    console.log(`   ${localImages.length} image(s) du local technique`);
-    localImages.forEach((img, index) => {
+    // Calculer combien d'images peuvent tenir sur la page actuelle
+    const imgPerRow = 2; // 2 images par ligne
+    const imgWidth = (pageWidth - 2 * margin - 10) / imgPerRow;
+    const imgHeight = 60;
+
+    let currentRow = 0;
+    let currentCol = 0;
+
+    imagesByType.localTechnique.forEach((img, index) => {
       try {
         const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
-        const maxImgWidth = pageWidth - 2 * margin - 20;
-        const maxImgHeight = 100; // Augmenté de 70 à 100
-        const xPos = (pageWidth - maxImgWidth) / 2;
 
-        if (yPos + maxImgHeight + 15 > pageHeight - footerHeight - 10) {
+        // Vérifier si on a besoin d'une nouvelle page
+        if (yPos + imgHeight + 15 > pageHeight - footerHeight - 10) {
           doc.addPage();
           addHeaderImage(doc, pageWidth);
           addFooterImage(doc, pageWidth, pageHeight);
           yPos = headerHeight + 10;
+          currentRow = 0;
+          currentCol = 0;
         }
 
-        const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
-        yPos += dimensions.height + 5;
+        const xPos = margin + (currentCol * (imgWidth + 5));
 
-        // Ajouter la description de l'image du local technique
+        const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, imgWidth - 5, imgHeight, 4);
+
+        // Description
         if (img.analysis?.description) {
-          doc.setFontSize(11);
+          doc.setFontSize(9);
           doc.setFont("helvetica", "italic");
           doc.setTextColor(...hexToRgb(COLORS.darkGray));
-          const captionLines = doc.splitTextToSize(img.analysis.description, maxImgWidth);
+          const captionLines = doc.splitTextToSize(img.analysis.description, imgWidth - 5);
+          let captionY = yPos + dimensions.height + 3;
           captionLines.forEach((line: string) => {
-            doc.text(line, pageWidth / 2, yPos, { align: "center" });
-            yPos += 5;
+            doc.text(line, xPos + (imgWidth - 5) / 2, captionY, { align: "center" });
+            captionY += 4;
           });
-          yPos += 3;
         }
 
-        yPos += 5;
+        currentCol++;
+        if (currentCol >= imgPerRow) {
+          currentCol = 0;
+          currentRow++;
+          yPos += imgHeight + 20; // Espace pour la prochaine ligne
+        }
+
+        console.log(`   ✓ Image local ${index + 1}/${imagesByType.localTechnique.length}`);
       } catch (error) {
-        console.error(`Erreur image local ${index}:`, error);
+        console.error(`   ❌ Erreur image local ${index}:`, error);
       }
     });
+
+    // Ajuster yPos si on est au milieu d'une ligne
+    if (currentCol > 0) {
+      yPos += imgHeight + 20;
+    }
+
+    yPos += 5;
   }
 
-  // --- NOUVELLE PAGE : TESTS RÉALISÉS ---
+  // --- TESTS RÉALISÉS ---
   doc.addPage();
   addHeaderImage(doc, pageWidth);
   addFooterImage(doc, pageWidth, pageHeight);
@@ -595,11 +631,11 @@ export function generatePDFV2(
 
   yPos = addPastelSectionTitle(doc, "TESTS RÉALISÉS", yPos, pageWidth, margin, COLORS.lightGreen);
 
-  // Tableaux de conformité avec sous-titres
   const hasCanalisations = rapport.conformite.canalisations && rapport.conformite.canalisations.length > 0;
   const hasPiecesSceller = rapport.conformite.pieces_sceller && rapport.conformite.pieces_sceller.length > 0;
   const hasEtancheite = rapport.conformite.etancheite && rapport.conformite.etancheite.revetement;
 
+  // Tests de pression - Canalisations
   if (hasCanalisations) {
     yPos = addPastelSubtitle(doc, "Tests de pression - Canalisations", yPos, pageWidth, margin, COLORS.lightBlue);
 
@@ -622,20 +658,90 @@ export function generatePDFV2(
       },
       bodyStyles: {
         textColor: hexToRgb(COLORS.darkGray),
-        fontSize: 9,
+        fontSize: 10,
       },
       columnStyles: {
-        1: { halign: "center", textColor: [34, 139, 34], fontStyle: "bold" }
+        1: { halign: "center", fontStyle: "bold" }
       },
       alternateRowStyles: {
         fillColor: [245, 245, 245],
       },
       margin: { left: margin, right: margin },
+      didParseCell: function(data: any) {
+        // Colorer en ROUGE si non-conforme
+        if (data.column.index === 1 && data.cell.section === 'body') {
+          const statut = data.cell.raw;
+          if (isNonConforme(statut)) {
+            data.cell.styles.textColor = hexToRgb(COLORS.red);
+          } else {
+            data.cell.styles.textColor = [34, 139, 34]; // Vert pour conforme
+          }
+        }
+      }
     });
 
     yPos = (doc as any).lastAutoTable.finalY + 10;
   }
 
+  // IMAGES DE MANOMÈTRE - REGROUPÉES (SANS DESCRIPTION)
+  if (imagesByType.manometre.length > 0) {
+    if (yPos > pageHeight - footerHeight - 80) {
+      doc.addPage();
+      addHeaderImage(doc, pageWidth);
+      addFooterImage(doc, pageWidth, pageHeight);
+      yPos = headerHeight + 10;
+    }
+
+    yPos = addPastelSubtitle(doc, "Mise en pression des canalisations", yPos, pageWidth, margin, COLORS.lightBlue);
+
+    console.log(`   ${imagesByType.manometre.length} image(s) de manomètre`);
+
+    // Grouper les manomètres 2 par 2
+    const imgPerRow = 2;
+    const imgWidth = (pageWidth - 2 * margin - 10) / imgPerRow;
+    const imgHeight = 60;
+
+    let currentCol = 0;
+
+    imagesByType.manometre.forEach((img, index) => {
+      try {
+        // Vérifier si on a besoin d'une nouvelle page
+        if (yPos + imgHeight + 10 > pageHeight - footerHeight - 10) {
+          doc.addPage();
+          addHeaderImage(doc, pageWidth);
+          addFooterImage(doc, pageWidth, pageHeight);
+          yPos = headerHeight + 10;
+          currentCol = 0;
+        }
+
+        const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
+        const xPos = margin + (currentCol * (imgWidth + 5));
+
+        addRoundedImage(doc, imgDataUrl, xPos, yPos, imgWidth - 5, imgHeight, 4);
+
+        // PAS DE DESCRIPTION pour les manomètres (comme demandé)
+
+        currentCol++;
+        if (currentCol >= imgPerRow) {
+          currentCol = 0;
+          yPos += imgHeight + 10; // Espace pour la prochaine ligne
+        }
+
+        console.log(`   ✓ Image manomètre ${index + 1}/${imagesByType.manometre.length} (sans description)`);
+      } catch (error) {
+        console.error(`   ❌ Erreur image manomètre ${index}:`, error);
+      }
+    });
+
+    // Ajuster yPos si on est au milieu d'une ligne
+    if (currentCol > 0) {
+      yPos += imgHeight + 10;
+    }
+
+    yPos += 10;
+  }
+
+  // Tests d'étanchéité - Pièces à sceller
   if (hasPiecesSceller) {
     if (yPos > pageHeight - footerHeight - 60) {
       doc.addPage();
@@ -665,20 +771,74 @@ export function generatePDFV2(
       },
       bodyStyles: {
         textColor: hexToRgb(COLORS.darkGray),
-        fontSize: 9,
+        fontSize: 10,
       },
       columnStyles: {
-        1: { halign: "center", textColor: [34, 139, 34], fontStyle: "bold" }
+        1: { halign: "center", fontStyle: "bold" }
       },
       alternateRowStyles: {
         fillColor: [245, 245, 245],
       },
       margin: { left: margin, right: margin },
+      didParseCell: function(data: any) {
+        // Colorer en ROUGE si non-conforme
+        if (data.column.index === 1 && data.cell.section === 'body') {
+          const statut = data.cell.raw;
+          if (isNonConforme(statut)) {
+            data.cell.styles.textColor = hexToRgb(COLORS.red);
+          } else {
+            data.cell.styles.textColor = [34, 139, 34]; // Vert pour conforme
+          }
+        }
+      }
     });
 
     yPos = (doc as any).lastAutoTable.finalY + 10;
   }
 
+  // Images d'équipements - dans cette section
+  if (imagesByType.equipement.length > 0) {
+    console.log(`   ${imagesByType.equipement.length} image(s) d'équipement`);
+
+    imagesByType.equipement.forEach((img, index) => {
+      try {
+        if (yPos > pageHeight - footerHeight - 100) {
+          doc.addPage();
+          addHeaderImage(doc, pageWidth);
+          addFooterImage(doc, pageWidth, pageHeight);
+          yPos = headerHeight + 10;
+        }
+
+        const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
+        const maxImgWidth = pageWidth - 2 * margin - 20;
+        const maxImgHeight = 80;
+        const xPos = (pageWidth - maxImgWidth) / 2;
+
+        const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
+        yPos += dimensions.height + 3;
+
+        // Description de l'équipement
+        if (img.analysis?.description) {
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(...hexToRgb(COLORS.darkGray));
+          const captionLines = doc.splitTextToSize(img.analysis.description, maxImgWidth);
+          captionLines.forEach((line: string) => {
+            doc.text(line, pageWidth / 2, yPos, { align: "center" });
+            yPos += 5;
+          });
+          yPos += 3;
+        }
+
+        yPos += 8;
+        console.log(`   ✓ Image équipement ${index + 1}/${imagesByType.equipement.length}`);
+      } catch (error) {
+        console.error(`   ❌ Erreur image équipement ${index}:`, error);
+      }
+    });
+  }
+
+  // Test d'étanchéité du revêtement
   if (hasEtancheite) {
     if (yPos > pageHeight - footerHeight - 40) {
       doc.addPage();
@@ -703,153 +863,29 @@ export function generatePDFV2(
       },
       bodyStyles: {
         textColor: hexToRgb(COLORS.darkGray),
-        fontSize: 9,
+        fontSize: 10,
       },
       columnStyles: {
-        1: { halign: "center", textColor: [34, 139, 34], fontStyle: "bold" }
+        1: { halign: "center", fontStyle: "bold" }
       },
       margin: { left: margin, right: margin },
+      didParseCell: function(data: any) {
+        // Colorer en ROUGE si non-conforme
+        if (data.column.index === 1 && data.cell.section === 'body') {
+          const statut = data.cell.raw;
+          if (isNonConforme(statut)) {
+            data.cell.styles.textColor = hexToRgb(COLORS.red);
+          } else {
+            data.cell.styles.textColor = [34, 139, 34]; // Vert pour conforme
+          }
+        }
+      }
     });
 
     yPos = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // Séparer les images : manomètres vs autres tests
-  const usedImages = [...localImages];
-  if (piscineImage) {
-    usedImages.push(piscineImage);
-  }
-
-  const allTestImages = images.filter(img => {
-    if (usedImages.includes(img)) return false;
-    if (img.analysis?.type === 'couverture_rapport') return false;
-    return true;
-  });
-
-  // Séparer les images de manomètres/pression des autres
-  const manometreImages = allTestImages.filter(img => {
-    const desc = img.analysis?.description?.toLowerCase() || "";
-    const type = img.analysis?.type?.toLowerCase() || "";
-    return desc.includes("manomètre") || desc.includes("pression") || type.includes("pression");
-  });
-
-  const otherTestImages = allTestImages.filter(img => !manometreImages.includes(img));
-
-  console.log(`\n=== IMAGES POUR SECTION TESTS ===`);
-  console.log(`Total images: ${images.length}`);
-  console.log(`Images manomètres: ${manometreImages.length}`);
-  console.log(`Autres images tests: ${otherTestImages.length}`);
-
-  // Section spéciale pour les manomètres (mise en pression)
-  if (manometreImages.length > 0) {
-    if (yPos > pageHeight - footerHeight - 60) {
-      doc.addPage();
-      addHeaderImage(doc, pageWidth);
-      addFooterImage(doc, pageWidth, pageHeight);
-      yPos = headerHeight + 10;
-    }
-
-    yPos = addPastelSubtitle(doc, "Mise en pression des canalisations", yPos, pageWidth, margin, COLORS.lightBlue);
-
-    // Afficher toutes les images de manomètres sans légende individuelle
-    manometreImages.forEach((img, index) => {
-      try {
-        if (yPos > pageHeight - footerHeight - 120) {
-          doc.addPage();
-          addHeaderImage(doc, pageWidth);
-          addFooterImage(doc, pageWidth, pageHeight);
-          yPos = headerHeight + 10;
-        }
-
-        const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
-        const maxImgWidth = pageWidth - 2 * margin - 20;
-        const maxImgHeight = 100; // Augmenté pour les manomètres
-        const xPos = (pageWidth - maxImgWidth) / 2;
-
-        const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
-        yPos += dimensions.height + 8; // Plus d'espace entre les images
-
-        console.log(`   ✓ Image manomètre ${index + 1}/${manometreImages.length}`);
-      } catch (error) {
-        console.error(`   ❌ Erreur image manomètre ${index}:`, error);
-      }
-    });
-
-    yPos += 5;
-  }
-
-  // Autres images de tests avec descriptions
-  if (otherTestImages.length > 0) {
-    otherTestImages.forEach((img, index) => {
-      try {
-        if (yPos > pageHeight - footerHeight - 120) {
-          doc.addPage();
-          addHeaderImage(doc, pageWidth);
-          addFooterImage(doc, pageWidth, pageHeight);
-          yPos = headerHeight + 10;
-        }
-
-        const imgDataUrl = `data:${img.contentType || "image/png"};base64,${img.base64}`;
-        const maxImgWidth = pageWidth - 2 * margin - 20;
-        const maxImgHeight = 100; // Augmenté pour toutes les images
-        const xPos = (pageWidth - maxImgWidth) / 2;
-
-        const dimensions = addRoundedImage(doc, imgDataUrl, xPos, yPos, maxImgWidth, maxImgHeight, 4);
-        yPos += dimensions.height + 3;
-
-        // Déterminer le nom du test
-        let testName = "";
-        const desc = img.analysis?.description?.toLowerCase() || "";
-        const type = img.analysis?.type?.toLowerCase() || "";
-
-        if (desc.includes("skimmer") || type.includes("skimmer")) {
-          testName = "Test skimmer";
-        } else if (desc.includes("bonde") || type.includes("bonde")) {
-          testName = "Test bonde de fond";
-        } else if (desc.includes("refoulement") || type.includes("refoulement")) {
-          testName = "Test refoulement";
-        } else if (desc.includes("étanchéité") || desc.includes("revêtement") || type.includes("etancheite")) {
-          testName = "Test d'étanchéité";
-        } else if (desc.includes("fluorescéine") || type.includes("fluoresceine")) {
-          testName = "Test fluorescéine";
-        }
-
-        // Afficher le nom du test en gras si identifié
-        if (testName) {
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(...hexToRgb(COLORS.darkGray));
-          doc.text(testName, pageWidth / 2, yPos, { align: "center" });
-          yPos += 6;
-        }
-
-        // Toujours afficher la description complète de l'image
-        if (img.analysis?.description) {
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "italic");
-          doc.setTextColor(...hexToRgb(COLORS.darkGray));
-          const captionLines = doc.splitTextToSize(img.analysis.description, maxImgWidth);
-          captionLines.forEach((line: string) => {
-            doc.text(line, pageWidth / 2, yPos, { align: "center" });
-            yPos += 5;
-          });
-          yPos += 3;
-        }
-
-        yPos += 4;
-
-        console.log(`   ✓ Image ${index + 1}/${otherTestImages.length}: ${testName || "sans légende"}`);
-      } catch (error) {
-        console.error(`   ❌ Erreur image test ${index}:`, error);
-      }
-    });
-  }
-
-  if (allTestImages.length === 0) {
-    console.log(`   ⚠️  Aucune image pour la section tests`);
-  }
-
-  // --- NOUVELLE PAGE : BILAN ---
+  // --- BILAN ---
   doc.addPage();
   addHeaderImage(doc, pageWidth);
   addFooterImage(doc, pageWidth, pageHeight);
@@ -874,7 +910,6 @@ export function generatePDFV2(
       items.push(...sentences.map(s => s.trim()));
     }
 
-    // Afficher comme liste à puces
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...hexToRgb(COLORS.darkGray));
@@ -897,10 +932,10 @@ export function generatePDFV2(
     });
   }
 
-  // --- NOUVELLE PAGE : RESPONSABILITÉS ---
-  // Note: Pas de footer sur cette page (avant-dernière page)
+  // --- RESPONSABILITÉS (sans footer) ---
   doc.addPage();
   addHeaderImage(doc, pageWidth);
+  // PAS DE FOOTER sur les pages de responsabilités
   yPos = headerHeight + 10;
 
   yPos = addPastelSectionTitle(doc, "RESPONSABILITÉS", yPos, pageWidth, margin, COLORS.darkTeal);
@@ -926,19 +961,17 @@ La société procédant à la réparation des fuites sur canalisation devra effe
   const responsLines = doc.splitTextToSize(responsabilites, pageWidth - 2 * margin);
 
   responsLines.forEach((line: string) => {
-    if (yPos > pageHeight - 40) { // Pas de footer, donc plus d'espace disponible
+    if (yPos > pageHeight - 40) {
       doc.addPage();
       addHeaderImage(doc, pageWidth);
-      // Pas de footer sur les pages de responsabilités
+      // PAS DE FOOTER sur les pages de responsabilités
       yPos = headerHeight + 10;
     }
     doc.text(line, margin, yPos);
     yPos += 6;
   });
 
-  // ===================
-  // DERNIÈRE PAGE : Page de fin
-  // ===================
+  // --- DERNIÈRE PAGE (sans header ni footer) ---
   console.log("\n📄 Dernière page: Page de fin");
   const finalImage = loadImageAsBase64("pagedefin.png");
   if (finalImage) {
@@ -951,7 +984,7 @@ La société procédant à la réparation des fuites sur canalisation devra effe
     }
   }
 
-  console.log("\n✅ PDF V3 généré avec succès!");
+  console.log("\n✅ PDF V3 AMÉLIORÉ généré avec succès!");
   console.log(`   Total de pages: ${doc.getNumberOfPages()}`);
   console.log("=== FIN GÉNÉRATION PDF ===\n");
 
