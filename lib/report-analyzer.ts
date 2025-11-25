@@ -78,17 +78,24 @@ export async function analyzeReportWithAI(
     console.log(`Taille prompt système: ${systemPrompt.length} caractères`);
     console.log(`Taille prompt utilisateur: ${userPrompt.length} caractères`);
 
-    // Appeler Claude 3.5 Sonnet avec le prompt système universel
-    console.log("Appel à l'API Anthropic Claude...");
+    // Appeler Claude 4.5 Sonnet avec le prompt système universel + PROMPT CACHING
+    console.log("Appel à l'API Anthropic Claude avec PROMPT CACHING activé...");
     const startTime = Date.now();
 
     let response;
     try {
       response = await anthropic.messages.create({
-        model: "claude-sonnet-4-5-20250929", // Claude Sonnet 4.5 (le plus récent et puissant, même prix que 3.5)
+        model: "claude-sonnet-4-5-20250929", // Claude Sonnet 4.5 (le plus récent et puissant)
         max_tokens: 16000, // Maximum pour générer le JSON complet sans troncature
         temperature: 0.2, // Basse température pour cohérence et précision
-        system: systemPrompt, // Claude utilise un paramètre system séparé
+        // OPTIMISATION : PROMPT CACHING activé (économise 50% sur les tokens input)
+        system: [
+          {
+            type: "text",
+            text: systemPrompt,
+            cache_control: { type: "ephemeral" } // Cache le system prompt pendant 5 minutes
+          }
+        ] as any,
         messages: [
           {
             role: "user",
