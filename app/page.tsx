@@ -24,6 +24,7 @@ export default function Home() {
   });
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [outputFormat, setOutputFormat] = useState<"pdf" | "docx">("pdf");
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -97,6 +98,7 @@ export default function Home() {
 
       const formData = new FormData();
       formData.append("file", selectedFile);
+      formData.append("format", outputFormat);
 
       // Étape 3: Récupération des images (30% -> 45%)
       setProcessingState({
@@ -129,11 +131,11 @@ export default function Home() {
       });
       await simulateProgress(60, 75, 1000);
 
-      // Étape 6: Génération du PDF (75% -> 90%)
+      // Étape 6: Génération du document (75% -> 90%)
       setProcessingState({
         step: "generating",
         progress: 75,
-        message: "Génération du PDF...",
+        message: `Génération du ${outputFormat.toUpperCase()}...`,
       });
       await simulateProgress(75, 90, 1000);
 
@@ -182,7 +184,8 @@ export default function Home() {
     const url = URL.createObjectURL(pdfBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rapport_corrige_${new Date().toISOString().split("T")[0]}.pdf`;
+    const extension = outputFormat === "pdf" ? "pdf" : "docx";
+    a.download = `rapport_corrige_${new Date().toISOString().split("T")[0]}.${extension}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -212,81 +215,168 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="relative z-10 container mx-auto px-4 py-12">
-        <div className="max-w-6xl mx-auto space-y-16">
-          {/* Hero Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            className="text-center space-y-8 py-8"
-          >
-            <a
-              href="https://www.matixweb.fr"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/5 border border-blue-500/10 mb-4 hover:bg-blue-500/10 transition-all duration-300 group"
-            >
-              <span className="text-xs text-slate-600 dark:text-slate-400">
-                Propulsé par
-              </span>
-              <Image
-                src="https://www.matixweb.fr/Matixweb-Digital-Solution-Dark.svg"
-                alt="MatixWeb Digital Solution"
-                width={120}
-                height={24}
-                priority
-                className="transition-transform group-hover:scale-105"
-              />
-            </a>
-
-            <h2 className="text-4xl md:text-6xl font-bold leading-tight">
-              <span className="bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] bg-clip-text text-transparent">
-                Transformez vos rapports
-              </span>
-              <br />
-              <span className="text-3xl md:text-5xl text-slate-800 dark:text-slate-200">
-                en PDF professionnels
-              </span>
-            </h2>
-
-            <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
-              Correction automatique IA • Mise en page parfaite • Branding LOCAMEX
-            </p>
-          </motion.div>
-
-          {/* Upload Zone - Direct */}
+        <div className="max-w-7xl mx-auto">
+          {/* Hero Section - 2 Columns */}
           {!isProcessing && processingState.step !== "completed" && (
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="flex justify-center"
-            >
-              <BackgroundGradient className="rounded-[32px] max-w-4xl w-full p-10 bg-white dark:bg-zinc-900">
-                <UploadZone
-                  onFileSelect={handleFileSelect}
-                  selectedFile={selectedFile}
-                  onClearFile={handleClearFile}
-                  disabled={isProcessing}
-                />
+            <div className="grid lg:grid-cols-2 gap-12 items-start">
+              {/* Left Column - Benefits */}
+              <motion.div
+                initial={{ opacity: 0, x: -40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.7 }}
+                className="space-y-8 pt-8"
+              >
+                <div className="space-y-6">
+                  <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                    <span className="bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] bg-clip-text text-transparent">
+                      Corrigez et formatez
+                    </span>
+                    <br />
+                    <span className="text-slate-800 dark:text-slate-200">
+                      vos rapports automatiquement
+                    </span>
+                  </h1>
 
-                {selectedFile && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex justify-center mt-8"
-                  >
-                    <ShimmerButton
-                      onClick={handleProcess}
-                      className="w-full max-w-md"
-                    >
-                      <Sparkles className="w-5 h-5" />
-                      Traiter le rapport
-                    </ShimmerButton>
-                  </motion.div>
-                )}
-              </BackgroundGradient>
-            </motion.div>
+                  <p className="text-xl text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Générez des rapports professionnels en quelques secondes avec correction automatique et mise en page parfaite.
+                  </p>
+                </div>
+
+                {/* Benefits */}
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-4 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
+                    <div className="w-10 h-10 rounded-full bg-[#5B949A]/10 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-[#5B949A]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Correction automatique
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        L'IA corrige toutes les fautes d'orthographe et de grammaire
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4 p-4 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
+                    <div className="w-10 h-10 rounded-full bg-[#7CAEB8]/10 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-[#7CAEB8]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Mise en page professionnelle
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Format standardisé avec branding LOCAMEX
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4 p-4 rounded-xl bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
+                    <div className="w-10 h-10 rounded-full bg-[#B6D1A3]/10 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-[#B6D1A3]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Gain de temps considérable
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        De 30 minutes de travail à moins de 2 minutes
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* MatixWeb Branding */}
+                <a
+                  href="https://www.matixweb.fr"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/5 border border-blue-500/10 hover:bg-blue-500/10 transition-all duration-300 group"
+                >
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
+                    Propulsé par
+                  </span>
+                  <Image
+                    src="https://www.matixweb.fr/Matixweb-Digital-Solution-Dark.svg"
+                    alt="MatixWeb Digital Solution"
+                    width={120}
+                    height={24}
+                    priority
+                    className="transition-transform group-hover:scale-105"
+                  />
+                </a>
+              </motion.div>
+
+              {/* Right Column - Upload Zone */}
+              <motion.div
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.7, delay: 0.2 }}
+                className="lg:sticky lg:top-24"
+              >
+                <BackgroundGradient className="rounded-[32px] p-8 bg-white dark:bg-zinc-900">
+                  <UploadZone
+                    onFileSelect={handleFileSelect}
+                    selectedFile={selectedFile}
+                    onClearFile={handleClearFile}
+                    disabled={isProcessing}
+                  />
+
+                  {selectedFile && (
+                    <>
+                      {/* Format Selection */}
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                      >
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                          Format de sortie
+                        </label>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setOutputFormat("pdf")}
+                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                              outputFormat === "pdf"
+                                ? "bg-[#5B949A] text-white shadow-md"
+                                : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 hover:border-[#5B949A]"
+                            }`}
+                          >
+                            PDF
+                          </button>
+                          <button
+                            onClick={() => setOutputFormat("docx")}
+                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                              outputFormat === "docx"
+                                ? "bg-[#5B949A] text-white shadow-md"
+                                : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 hover:border-[#5B949A]"
+                            }`}
+                          >
+                            DOCX
+                          </button>
+                        </div>
+                      </motion.div>
+
+                      {/* Process Button */}
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex justify-center mt-6"
+                      >
+                        <ShimmerButton
+                          onClick={handleProcess}
+                          className="w-full"
+                        >
+                          <Sparkles className="w-5 h-5" />
+                          Traiter le rapport
+                        </ShimmerButton>
+                      </motion.div>
+                    </>
+                  )}
+                </BackgroundGradient>
+              </motion.div>
+            </div>
           )}
 
           {/* Processing Status */}
@@ -340,7 +430,7 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
                   <ShimmerButton onClick={handleDownload} className="gap-2">
                     <Download className="w-5 h-5" />
-                    Télécharger le PDF
+                    Télécharger le {outputFormat.toUpperCase()}
                   </ShimmerButton>
                   <Button
                     onClick={handleClearFile}

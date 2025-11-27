@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractWordContentAdvanced } from "@/lib/word-extractor-advanced";
 import { generatePDFV2 } from "@/lib/pdf-generator-v3";
+import { generateDOCX } from "@/lib/docx-generator";
 import { analyzeAllImages } from "@/lib/image-analyzer";
 import { analyzeReportWithAI, validateRapportAnalyse } from "@/lib/report-analyzer";
 import { ReportDataV2 } from "@/types";
@@ -10,13 +11,22 @@ export const maxDuration = 120; // 120 secondes max (augmenté pour l'analyse IA
 
 export async function POST(request: NextRequest) {
   try {
-    // Récupérer le fichier depuis le FormData
+    // Récupérer le fichier et le format depuis le FormData
     const formData = await request.formData();
     const file = formData.get("file") as File;
+    const format = (formData.get("format") as string) || "pdf";
 
     if (!file) {
       return NextResponse.json(
         { error: "Aucun fichier fourni" },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier le format demandé
+    if (format !== "pdf" && format !== "docx") {
+      return NextResponse.json(
+        { error: "Format invalide. Utilisez 'pdf' ou 'docx'" },
         { status: 400 }
       );
     }
@@ -98,25 +108,38 @@ export async function POST(request: NextRequest) {
       originalTables: extractedData.tables,
     };
 
-    // Étape 4 : Génération du PDF professionnel v3 (nouvelle structure)
-    console.log("\n📑 ÉTAPE 4 : Génération du PDF professionnel v3...");
+    // Étape 4 : Génération du document (PDF ou DOCX)
+    console.log(`\n📑 ÉTAPE 4 : Génération du document ${format.toUpperCase()}...`);
 
-    const pdfBlob = generatePDFV2(analyzedReport, analyzedImages);
+    let documentBlob: Blob;
+    let contentType: string;
+    let fileExtension: string;
+
+    if (format === "pdf") {
+      documentBlob = generatePDFV2(analyzedReport, analyzedImages);
+      contentType = "application/pdf";
+      fileExtension = "pdf";
+      console.log("✅ PDF généré avec succès");
+    } else {
+      documentBlob = await generateDOCX(analyzedReport, analyzedImages);
+      contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      fileExtension = "docx";
+      console.log("✅ DOCX généré avec succès");
+    }
 
     // Convertir le Blob en Buffer pour Next.js
-    const arrayBuffer = await pdfBlob.arrayBuffer();
+    const arrayBuffer = await documentBlob.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    console.log("✅ PDF généré avec succès");
     console.log("\n========================================");
     console.log("TRAITEMENT TERMINÉ AVEC SUCCÈS");
     console.log("========================================\n");
 
-    // Retourner le PDF
+    // Retourner le document
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="rapport_locamex_${analyzedReport.client.nom || "client"}_${analyzedReport.inspection.date.replace(/\//g, "-")}.pdf"`,
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="rapport_locamex_${analyzedReport.client.nom || "client"}_${analyzedReport.inspection.date.replace(/\//g, "-")}.${fileExtension}"`,
       },
     });
   } catch (error) {
