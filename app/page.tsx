@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { UploadZone } from "@/components/upload-zone";
 import { ProcessingStatus } from "@/components/processing-status";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, Download, AlertCircle, Sparkles, Zap, FileCheck, Palette } from "lucide-react";
+import { CheckCircle2, Download, AlertCircle, Sparkles } from "lucide-react";
 import { ProcessingState } from "@/types";
 import { BackgroundGradient } from "@/components/ui/background-gradient";
 import { GridPattern } from "@/components/ui/grid-pattern";
-import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
-import { TextGenerateEffect } from "@/components/ui/text-generate-effect";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
 import { MovingBorder } from "@/components/ui/moving-border";
 
@@ -208,31 +208,7 @@ export default function Home() {
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#B6D1A3]/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
       <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-[#7CAEB8]/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
 
-      {/* Header */}
-      <header className="relative z-10 border-b border-slate-200/50 dark:border-slate-800/50 backdrop-blur-sm bg-white/50 dark:bg-slate-900/50">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex items-center gap-3"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5B949A] to-[#7CAEB8] flex items-center justify-center shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5B949A] to-[#7CAEB8] bg-clip-text text-transparent">
-                  LOCAMEX
-                </h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Expert en recherche de fuites
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Content */}
       <main className="relative z-10 container mx-auto px-4 py-12">
@@ -369,23 +345,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-200/50 dark:border-slate-800/50 backdrop-blur-sm bg-white/50 dark:bg-slate-900/50 mt-24 py-12">
-        <div className="container mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#5B949A] to-[#7CAEB8] flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-slate-800 dark:text-slate-200">LOCAMEX</span>
-          </div>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-            &copy; 2025 LOCAMEX - Tous droits réservés
-          </p>
-          <p className="text-xs text-slate-500 dark:text-slate-500">
-            www.locamex.org | contact@locamex.org | +70 agences en Europe
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
