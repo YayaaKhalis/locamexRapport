@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { Sparkles, Menu, X, AlertCircle } from "lucide-react";
+import { Menu, X, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FeedbackModal } from "@/components/feedback-modal";
@@ -23,21 +24,18 @@ export function Header() {
               transition={{ duration: 0.5 }}
               className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
             >
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5B949A] to-[#7CAEB8] flex items-center justify-center shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5B949A] to-[#7CAEB8] bg-clip-text text-transparent">
-                    LOCAMEX
-                  </h1>
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full">
-                    BETA
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Expert en recherche de fuites
-                </p>
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/logo-locamex-light.webp"
+                  alt="LOCAMEX Logo"
+                  width={120}
+                  height={40}
+                  className="object-contain"
+                  priority
+                />
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full">
+                  BETA
+                </span>
               </div>
             </motion.div>
           </Link>

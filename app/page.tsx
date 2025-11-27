@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { Header } from "@/components/header";
-import { Footer } from "@/components/footer";
 import { UploadZone } from "@/components/upload-zone";
 import { ProcessingStatus } from "@/components/processing-status";
 import { Button } from "@/components/ui/button";
@@ -220,12 +220,24 @@ export default function Home() {
             transition={{ duration: 0.7 }}
             className="text-center space-y-8 py-8"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#5B949A]/10 border border-[#5B949A]/20 mb-4">
-              <Sparkles className="w-4 h-4 text-[#5B949A]" />
-              <span className="text-sm font-medium text-[#5B949A]">
-                Propulsé par l'Intelligence Artificielle
+            <a
+              href="https://www.matixweb.fr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/5 border border-blue-500/10 mb-4 hover:bg-blue-500/10 transition-all duration-300 group"
+            >
+              <span className="text-xs text-slate-600 dark:text-slate-400">
+                Propulsé par
               </span>
-            </div>
+              <Image
+                src="https://www.matixweb.fr/Matixweb-Digital-Solution-Dark.svg"
+                alt="MatixWeb Digital Solution"
+                width={120}
+                height={24}
+                priority
+                className="transition-transform group-hover:scale-105"
+              />
+            </a>
 
             <h2 className="text-4xl md:text-6xl font-bold leading-tight">
               <span className="bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] bg-clip-text text-transparent">
@@ -344,8 +356,6 @@ export default function Home() {
           )}
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
