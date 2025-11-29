@@ -66,14 +66,20 @@ export default function Home() {
           currentStep++;
           currentProgress += increment;
 
+          // Mettre à jour la progression
+          setProcessingState((prev) => ({
+            ...prev,
+            progress: Math.round(currentProgress),
+          }));
+
           if (currentStep >= steps) {
             clearInterval(interval);
-            resolve();
-          } else {
+            // S'assurer qu'on atteint exactement la cible
             setProcessingState((prev) => ({
               ...prev,
-              progress: Math.round(currentProgress),
+              progress: endProgress,
             }));
+            resolve();
           }
         }, stepDuration);
       });
@@ -387,7 +393,7 @@ export default function Home() {
               className="max-w-2xl mx-auto"
             >
               <MovingBorder borderRadius="1.5rem" duration={3000}>
-                <ProcessingStatus state={processingState} />
+                <ProcessingStatus state={processingState} outputFormat={outputFormat} />
               </MovingBorder>
             </motion.div>
           )}
@@ -411,37 +417,149 @@ export default function Home() {
             </motion.div>
           )}
 
-          {/* Success State */}
+          {/* Success State - Modern Design */}
           {processingState.step === "completed" && pdfBlob && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-8"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 20 }}
+              className="max-w-2xl mx-auto"
             >
-              <BackgroundGradient className="rounded-[32px] p-8">
-                <Alert variant="success" className="border-green-500/50 bg-green-50/50 dark:bg-green-950/20">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <AlertTitle>Succès !</AlertTitle>
-                  <AlertDescription>
-                    Votre rapport a été traité avec succès et est prêt à être téléchargé.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-                  <ShimmerButton onClick={handleDownload} className="gap-2">
-                    <Download className="w-5 h-5" />
-                    Télécharger le {outputFormat.toUpperCase()}
-                  </ShimmerButton>
-                  <Button
-                    onClick={handleClearFile}
-                    variant="secondary"
-                    size="lg"
-                    className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
-                  >
-                    Traiter un autre rapport
-                  </Button>
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-10 shadow-2xl border border-slate-200/50 dark:border-slate-700/50">
+                {/* Animated background pattern */}
+                <div className="absolute inset-0 opacity-5">
+                  <motion.div
+                    className="absolute inset-0"
+                    style={{
+                      backgroundImage: `radial-gradient(circle at 20px 20px, #5B949A 1px, transparent 0)`,
+                      backgroundSize: "40px 40px",
+                    }}
+                    animate={{
+                      backgroundPosition: ["0px 0px", "40px 40px"],
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
                 </div>
-              </BackgroundGradient>
+
+                <div className="relative z-10 space-y-8">
+                  {/* Success Icon */}
+                  <div className="flex justify-center">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                      className="relative"
+                    >
+                      <div className="p-6 bg-gradient-to-br from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] rounded-3xl shadow-2xl">
+                        <CheckCircle2 className="w-16 h-16 text-white" strokeWidth={2} />
+                      </div>
+                      {/* Pulsing glow effect */}
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-br from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] rounded-3xl blur-2xl"
+                        animate={{
+                          scale: [1, 1.4, 1],
+                          opacity: [0.4, 0.7, 0.4],
+                        }}
+                        transition={{
+                          duration: 2.5,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      />
+                    </motion.div>
+                  </div>
+
+                  {/* Success Message */}
+                  <div className="text-center space-y-3">
+                    <motion.h2
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-3xl font-bold bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] bg-clip-text text-transparent"
+                    >
+                      Traitement terminé avec succès !
+                    </motion.h2>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="text-base text-slate-600 dark:text-slate-400"
+                    >
+                      Votre rapport {outputFormat.toUpperCase()} professionnel est prêt à être téléchargé
+                    </motion.p>
+                  </div>
+
+                  {/* Stats Cards */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="grid grid-cols-3 gap-4"
+                  >
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-[#5B949A]/10 to-[#5B949A]/5 border border-[#5B949A]/20">
+                      <div className="text-2xl font-bold text-[#5B949A]">✓</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Texte corrigé</div>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-[#7CAEB8]/10 to-[#7CAEB8]/5 border border-[#7CAEB8]/20">
+                      <div className="text-2xl font-bold text-[#7CAEB8]">✓</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Images analysées</div>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-[#B6D1A3]/10 to-[#B6D1A3]/5 border border-[#B6D1A3]/20">
+                      <div className="text-2xl font-bold text-[#B6D1A3]">✓</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Mise en page</div>
+                    </div>
+                  </motion.div>
+
+                  {/* Action Buttons */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
+                  >
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <button
+                        onClick={handleDownload}
+                        className="group relative px-8 py-4 bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] rounded-2xl text-white font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center gap-3 overflow-hidden"
+                      >
+                        {/* Shimmer effect */}
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                          animate={{
+                            x: ["-100%", "200%"],
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "linear",
+                          }}
+                        />
+                        <Download className="w-5 h-5 relative z-10" />
+                        <span className="relative z-10">Télécharger le {outputFormat.toUpperCase()}</span>
+                      </button>
+                    </motion.div>
+
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <button
+                        onClick={handleClearFile}
+                        className="px-8 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-2xl text-slate-700 dark:text-slate-300 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                      >
+                        Traiter un autre rapport
+                      </button>
+                    </motion.div>
+                  </motion.div>
+                </div>
+              </div>
             </motion.div>
           )}
         </div>
