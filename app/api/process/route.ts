@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractWordContentAdvanced } from "@/lib/word-extractor-advanced";
 import { generatePDFV2 } from "@/lib/pdf-generator-v3";
-import { generateDOCXV2 } from "@/lib/docx-generator-v2";
+import { generateDOCXV3 } from "@/lib/docx-generator-v3";
 import { analyzeAllImages } from "@/lib/image-analyzer";
 import { analyzeReportWithAI, validateRapportAnalyse } from "@/lib/report-analyzer";
 import { ReportDataV2 } from "@/types";
@@ -121,11 +121,11 @@ export async function POST(request: NextRequest) {
       fileExtension = "pdf";
       console.log("✅ PDF généré avec succès");
     } else {
-      // Utiliser le générateur DOCX V2 professionnel
-      documentBlob = await generateDOCXV2(analyzedReport, analyzedImages);
+      // Utiliser le générateur DOCX V3 (identique au PDF)
+      documentBlob = await generateDOCXV3(analyzedReport, analyzedImages);
       contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       fileExtension = "docx";
-      console.log("✅ DOCX V2 généré avec succès");
+      console.log("✅ DOCX V3 généré avec succès");
     }
 
     // Convertir le Blob en Buffer pour Next.js
