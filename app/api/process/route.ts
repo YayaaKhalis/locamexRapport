@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractWordContentAdvanced } from "@/lib/word-extractor-advanced";
 import { generatePDFV2 } from "@/lib/pdf-generator-v3";
-import { generateDOCX } from "@/lib/docx-generator";
-import { generateDOCXV2 } from "@/lib/docx-generator-v2";
+import { generateDOCXPerfect } from "@/lib/docx-generator-perfect";
 import { analyzeAllImages } from "@/lib/image-analyzer";
 import { analyzeReportWithAI, validateRapportAnalyse } from "@/lib/report-analyzer";
 import { ReportDataV2 } from "@/types";
@@ -122,10 +121,11 @@ export async function POST(request: NextRequest) {
       fileExtension = "pdf";
       console.log("✅ PDF généré avec succès");
     } else {
-      documentBlob = await generateDOCXV2(analyzedReport, analyzedImages);
+      // Utiliser le générateur DOCX PARFAIT - Qualité identique au PDF
+      documentBlob = await generateDOCXPerfect(analyzedReport, analyzedImages);
       contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       fileExtension = "docx";
-      console.log("✅ DOCX V2 généré avec succès (template LOCAMEX)");
+      console.log("✅ DOCX PARFAIT généré avec succès (qualité identique au PDF)");
     }
 
     // Convertir le Blob en Buffer pour Next.js
