@@ -367,10 +367,10 @@ export function generatePDFV2(
     doc.roundedRect(x, y, blockWidth, blockHeight, cornerRadius, cornerRadius, "F");
 
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
+    doc.setFontSize(14); // Augmenté de 11 à 14 pour plus grande lisibilité
     doc.setFont("helvetica", "bold");
 
-    const lineHeight = 6;
+    const lineHeight = 7; // Augmenté de 6 à 7 pour l'espacement
     const totalTextHeight = text.length * lineHeight;
     let textY = y + (blockHeight - totalTextHeight) / 2 + lineHeight;
 

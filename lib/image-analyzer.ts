@@ -20,7 +20,7 @@ export async function analyzeImageWithVision(
 
     // OPTIMISATION : Utiliser Haiku au lieu de Sonnet (10x moins cher pour la vision)
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-20250514", // Claude Haiku 4 avec vision - 10x moins cher !
+      model: "claude-3-5-haiku-20241022", // Claude 3.5 Haiku avec vision - 10x moins cher !
       max_tokens: 300, // Réduit de 500 à 300 (suffisant pour la classification)
       temperature: 0.1, // Réduit de 0.2 à 0.1 pour plus de cohérence
       system: [
@@ -212,7 +212,7 @@ Ne retourne QUE le tableau JSON, rien d'autre.`,
 
     // OPTIMISATION : Utiliser Haiku (10x moins cher que Sonnet)
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-20250514", // Claude Haiku 4 avec vision
+      model: "claude-3-5-haiku-20241022", // Claude 3.5 Haiku avec vision
       max_tokens: 300 * images.length, // 300 tokens par image
       temperature: 0.1,
       system: [
@@ -292,7 +292,7 @@ export async function _OLD_analyzeImageWithVision(
 
     // Claude accepte les images en base64 directement
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-20250514", // HAIKU au lieu de Sonnet
+      model: "claude-3-5-haiku-20241022", // HAIKU au lieu de Sonnet
       max_tokens: 300,
       temperature: 0.1,
       system: `Tu es un expert en analyse de photos de rapports d'inspection de piscines pour LOCAMEX.
