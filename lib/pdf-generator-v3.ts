@@ -216,16 +216,38 @@ export function generatePDFV2(
 
   // ÉTAPE 1 : Éliminer les doublons
   console.log("\n🔍 Élimination des doublons...");
-  const uniqueImages = removeDuplicateImages(images);
+  let uniqueImages = removeDuplicateImages(images);
   console.log(`Images uniques: ${uniqueImages.length}`);
 
+  // ÉTAPE 1.5 : Filtrer les images inutiles (schéma, diagramme, pages de couverture)
+  console.log("\n🗑️  Filtrage des images inutiles...");
+  const beforeFilter = uniqueImages.length;
+  uniqueImages = uniqueImages.filter(img => {
+    const desc = img.analysis?.description?.toLowerCase() || "";
+    const type = img.analysis?.type?.toLowerCase() || "";
+
+    // EXCLURE les images de schéma/diagramme/couverture qui contiennent les 3 cards
+    const isUseless =
+      desc.includes("schéma") ||
+      desc.includes("schema") ||
+      desc.includes("diagramme") ||
+      desc.includes("étapes du rapport") ||
+      desc.includes("etapes du rapport") ||
+      (type === "couverture_rapport" && desc.includes("couverture")) ||
+      (type === "autre" && (desc.includes("schéma") || desc.includes("étapes")));
+
+    return !isUseless;
+  });
+  console.log(`   Filtré: ${beforeFilter - uniqueImages.length} image(s) inutile(s) supprimée(s)`);
+  console.log(`Images utiles: ${uniqueImages.length}`);
+
   if (uniqueImages.length > 0) {
-    console.log("\n📸 LISTE DES IMAGES UNIQUES:");
+    console.log("\n📸 LISTE DES IMAGES UTILES:");
     uniqueImages.forEach((img, idx) => {
       console.log(`   ${idx + 1}. Type: ${img.analysis?.type || "non analysé"} | Description: ${img.analysis?.description || "N/A"}`);
     });
   } else {
-    console.warn("⚠️  AUCUNE IMAGE REÇUE !");
+    console.warn("⚠️  AUCUNE IMAGE UTILE !");
   }
 
   const doc = new jsPDF({
@@ -259,9 +281,14 @@ export function generatePDFV2(
   // Ensuite la piscine principale (priorité displayPriority = 1)
   const piscineImages = uniqueImages.filter(img => {
     if (usedImages.has(img)) return false;
+    const desc = img.analysis?.description?.toLowerCase() || "";
+
+    // EXCLURE si contient "local technique" dans la description
+    if (desc.includes("local technique")) return false;
+
     const isPiscine = img.analysis?.type === "piscine" ||
-                     img.analysis?.description?.toLowerCase().includes("bassin") ||
-                     img.analysis?.description?.toLowerCase().includes("vue d'ensemble") ||
+                     desc.includes("bassin") ||
+                     (desc.includes("vue d'ensemble") && !desc.includes("local")) ||
                      img.analysis?.displayPriority === 1;
     if (isPiscine) usedImages.add(img);
     return isPiscine;
@@ -349,13 +376,19 @@ export function generatePDFV2(
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pageWidth, pageHeight, "F");
 
+  // --- TITRE : "Ce rapport comprend les données suivantes :" ---
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...hexToRgb(COLORS.darkTeal));
+  doc.text("Ce rapport comprend les données suivantes :", pageWidth / 2, 20, { align: "center" });
+
   // --- 3 BLOCS ARRONDIS ---
   const blockWidth = 50;
   const blockHeight = 45;
   const blockSpacing = 10;
   const totalWidth = 3 * blockWidth + 2 * blockSpacing;
   const startX = (pageWidth - totalWidth) / 2;
-  const startY = 30;
+  const startY = 35;
   const cornerRadius = 5;
 
   const block1Color = hexToRgb(COLORS.darkTeal);

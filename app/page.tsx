@@ -1,19 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Header } from "@/components/header";
 import { UploadZone } from "@/components/upload-zone";
-import { ProcessingStatus } from "@/components/processing-status";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, Download, AlertCircle, Sparkles } from "lucide-react";
+import { AlertCircle, Sparkles } from "lucide-react";
 import { ProcessingState } from "@/types";
 import { BackgroundGradient } from "@/components/ui/background-gradient";
-import { GridPattern } from "@/components/ui/grid-pattern";
 import { ShimmerButton } from "@/components/ui/shimmer-button";
-import { MovingBorder } from "@/components/ui/moving-border";
+import { AuroraBackground } from "@/components/ui/aurora-background";
+import { Particles } from "@/components/ui/particles";
+import { ProcessingModal } from "@/components/processing-modal";
+import { DownloadModal } from "@/components/download-modal";
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -195,74 +196,101 @@ export default function Home() {
     processingState.step !== "error";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 relative overflow-hidden">
-      {/* Grid Pattern Background */}
-      <GridPattern
-        width={50}
-        height={50}
-        className="absolute inset-0 opacity-40"
+    <AuroraBackground className="min-h-screen">
+      {/* Particles Effect */}
+      <Particles
+        className="absolute inset-0 pointer-events-none"
+        quantity={100}
+        staticity={50}
+        ease={50}
       />
-
-      {/* Gradient Orbs */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-[#5B949A]/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#B6D1A3]/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
-      <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-[#7CAEB8]/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
 
       <Header />
 
-      {/* Main Content */}
-      <main className="relative z-10 container mx-auto px-4 py-12">
-        <div className="max-w-6xl mx-auto space-y-16">
-          {/* Hero Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            className="text-center space-y-8 py-8"
-          >
-            <a
-              href="https://www.matixweb.fr"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-blue-500/5 border border-blue-500/10 mb-4 hover:bg-blue-500/10 transition-all duration-300 group"
-            >
-              <span className="text-xs text-slate-600 dark:text-slate-400">
-                Propulsé par
-              </span>
-              <Image
-                src="https://www.matixweb.fr/Matixweb-Digital-Solution-Dark.svg"
-                alt="MatixWeb Digital Solution"
-                width={120}
-                height={24}
-                priority
-                className="transition-transform group-hover:scale-105"
-              />
-            </a>
-
-            <h2 className="text-4xl md:text-6xl font-bold leading-tight">
-              <span className="bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] bg-clip-text text-transparent">
-                Transformez vos rapports
-              </span>
-              <br />
-              <span className="text-3xl md:text-5xl text-slate-800 dark:text-slate-200">
-                en PDF professionnels
-              </span>
-            </h2>
-
-            <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
-              Correction automatique IA • Mise en page parfaite • Branding LOCAMEX
-            </p>
-          </motion.div>
-
-          {/* Upload Zone - Direct */}
-          {!isProcessing && processingState.step !== "completed" && (
+      {/* Main Content - Two Column Layout */}
+      <main className="relative z-10 container mx-auto px-4 h-[calc(100vh-80px)] flex items-center">
+        <div className="w-full max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Content */}
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="flex justify-center"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+              className="space-y-8"
             >
-              <BackgroundGradient className="rounded-[32px] max-w-4xl w-full p-10 bg-white dark:bg-zinc-900">
+              {/* Badge */}
+              <a
+                href="https://www.matixweb.fr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-gradient-to-r from-[#5B949A]/10 to-[#B6D1A3]/10 border border-[#5B949A]/20 hover:border-[#5B949A]/40 transition-all duration-300 group"
+              >
+                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  Propulsé par
+                </span>
+                <Image
+                  src="https://www.matixweb.fr/Matixweb-Digital-Solution-Dark.svg"
+                  alt="MatixWeb Digital Solution"
+                  width={100}
+                  height={20}
+                  priority
+                  className="transition-transform group-hover:scale-105"
+                />
+              </a>
+
+              {/* Title */}
+              <div className="space-y-4">
+                <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
+                  <span className="bg-gradient-to-r from-[#5B949A] via-[#7CAEB8] to-[#B6D1A3] bg-clip-text text-transparent">
+                    Rapports
+                  </span>
+                  <br />
+                  <span className="text-slate-800 dark:text-slate-200">
+                    professionnels
+                  </span>
+                  <br />
+                  <span className="text-4xl lg:text-5xl xl:text-6xl text-slate-600 dark:text-slate-400">
+                    en 2 minutes
+                  </span>
+                </h1>
+                <p className="text-xl text-slate-600 dark:text-slate-400 leading-relaxed">
+                  L'IA corrige, met en page et génère votre PDF parfait
+                </p>
+              </div>
+
+              {/* Features */}
+              <div className="grid grid-cols-1 gap-4">
+                {[
+                  { icon: "✓", title: "Correction IA", desc: "Orthographe & grammaire parfaites" },
+                  { icon: "✓", title: "Mise en page pro", desc: "Design LOCAMEX automatique" },
+                  { icon: "✓", title: "Images organisées", desc: "Classement intelligent par section" }
+                ].map((feature, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 + i * 0.1 }}
+                    className="flex items-center gap-4 p-4 rounded-2xl bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-sm"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-[#5B949A] to-[#7CAEB8] flex items-center justify-center text-white font-bold">
+                      {feature.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800 dark:text-slate-200">{feature.title}</h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">{feature.desc}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Right Column - Upload */}
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <BackgroundGradient className="rounded-3xl p-8 bg-white dark:bg-slate-900/90 backdrop-blur-xl shadow-2xl">
                 <UploadZone
                   onFileSelect={handleFileSelect}
                   selectedFile={selectedFile}
@@ -270,92 +298,55 @@ export default function Home() {
                   disabled={isProcessing}
                 />
 
-                {selectedFile && (
+                {selectedFile && !isProcessing && processingState.step !== "completed" && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex justify-center mt-8"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="mt-6"
                   >
                     <ShimmerButton
                       onClick={handleProcess}
-                      className="w-full max-w-md"
+                      className="w-full h-14 text-lg"
                     >
-                      <Sparkles className="w-5 h-5" />
+                      <Sparkles className="w-6 h-6" />
                       Traiter le rapport
                     </ShimmerButton>
                   </motion.div>
                 )}
-              </BackgroundGradient>
-            </motion.div>
-          )}
 
-          {/* Processing Status */}
-          {isProcessing && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="max-w-2xl mx-auto"
-            >
-              <MovingBorder borderRadius="1.5rem" duration={3000}>
-                <ProcessingStatus state={processingState} />
-              </MovingBorder>
-            </motion.div>
-          )}
-
-          {/* Error Alert */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <Alert variant="error" className="border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Erreur</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-              <div className="flex justify-center mt-6">
-                <Button onClick={handleClearFile} variant="secondary" size="lg">
-                  Réessayer
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Success State */}
-          {processingState.step === "completed" && pdfBlob && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="space-y-8"
-            >
-              <BackgroundGradient className="rounded-[32px] p-8">
-                <Alert variant="success" className="border-green-500/50 bg-green-50/50 dark:bg-green-950/20">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <AlertTitle>Succès !</AlertTitle>
-                  <AlertDescription>
-                    Votre rapport a été traité avec succès et est prêt à être téléchargé.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-                  <ShimmerButton onClick={handleDownload} className="gap-2">
-                    <Download className="w-5 h-5" />
-                    Télécharger le PDF
-                  </ShimmerButton>
-                  <Button
-                    onClick={handleClearFile}
-                    variant="secondary"
-                    size="lg"
-                    className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+                {/* Error Alert */}
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-6"
                   >
-                    Traiter un autre rapport
-                  </Button>
-                </div>
+                    <Alert variant="error" className="border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Erreur</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                    <Button onClick={handleClearFile} variant="secondary" size="lg" className="w-full mt-4">
+                      Réessayer
+                    </Button>
+                  </motion.div>
+                )}
               </BackgroundGradient>
             </motion.div>
-          )}
+          </div>
         </div>
       </main>
-    </div>
+
+      {/* Processing Modal */}
+      <ProcessingModal isOpen={isProcessing} state={processingState} />
+
+      {/* Download Modal */}
+      <DownloadModal
+        isOpen={processingState.step === "completed" && pdfBlob !== null}
+        onDownload={handleDownload}
+        onClose={() => {}}
+        onNewReport={handleClearFile}
+      />
+    </AuroraBackground>
   );
 }
