@@ -23,18 +23,24 @@ import { RapportAnalyse, ImageData } from "@/types";
 import fs from "fs";
 import path from "path";
 
-// Couleurs LOCAMEX (en hexadécimal)
+// Couleurs LOCAMEX (en hexadécimal) - CODES OFFICIELS
 const COLORS = {
-  darkTeal: "5B949A",    // Bleu-vert foncé
-  lightBlue: "7CAEB8",   // Bleu pâle
-  lightGreen: "B6D1A3",  // Vert pâle
+  // Couleurs principales LOCAMEX
+  darkTealHeader: "4A7C89",   // Bleu sarcelle foncé - Pour les en-têtes de tableaux
+  tealMedium: "6BA6B0",        // Bleu sarcelle moyen - Pour les cards 1&2 et les sous-titres
+  lightGreen: "A8C78F",        // Vert clair - Pour la card 3 et les titres de sections
+  lightBg: "F7F7F7",           // Blanc cassé - Pour le fond général des pages
+
+  // Couleurs fonctionnelles
+  green: "28A745",             // Vert conformité - Pour "Conforme" (en gras)
+  red: "DC3545",               // Rouge non-conformité - Pour "Non conforme" (en gras)
+  darkGray: "333333",          // Gris texte - Pour le texte standard
+  borderGray: "DDDDDD",        // Gris bordures - Pour les bordures de tableaux
+  altRowGray: "F9F9F9",        // Gris lignes alternées - Pour les lignes paires des tableaux
+  mediumGray: "666666",        // Gris moyen
+
   white: "FFFFFF",
   black: "000000",
-  darkGray: "333333",
-  lightGray: "F5F5F5",
-  mediumGray: "CCCCCC",
-  red: "DC3545",
-  green: "228B22",       // Vert pour conforme
 };
 
 /**
@@ -51,11 +57,26 @@ function loadImageAsBuffer(imageName: string): Buffer | null {
 }
 
 /**
- * Convertir base64 en Buffer
+ * Détecter le type MIME d'une image base64
  */
-function base64ToBuffer(base64: string): Buffer {
+function detectImageType(base64: string): string {
+  if (base64.startsWith("data:image/png")) return "png";
+  if (base64.startsWith("data:image/jpeg") || base64.startsWith("data:image/jpg")) return "jpg";
+  if (base64.startsWith("data:image/gif")) return "gif";
+  if (base64.startsWith("data:image/bmp")) return "bmp";
+  if (base64.startsWith("data:image/webp")) return "png"; // Convertir webp en png pour compatibilité
+  // Par défaut, retourner png si le type n'est pas détecté
+  return "png";
+}
+
+/**
+ * Convertir base64 en Buffer ET détecter le type
+ */
+function base64ToBuffer(base64: string): { buffer: Buffer; type: string } {
+  const type = detectImageType(base64);
   const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
-  return Buffer.from(base64Data, "base64");
+  const buffer = Buffer.from(base64Data, "base64");
+  return { buffer, type };
 }
 
 /**
@@ -111,7 +132,7 @@ function createHeader(): Header {
                   text: "LOCAMEX",
                   bold: true,
                   size: 32,
-                  color: COLORS.darkTeal,
+                  color: COLORS.tealMedium,
                 }),
               ],
           alignment: AlignmentType.LEFT,
@@ -169,7 +190,7 @@ function createFooter(): Footer {
           },
           border: {
             top: {
-              color: COLORS.darkTeal,
+              color: COLORS.tealMedium,
               space: 1,
               style: BorderStyle.SINGLE,
               size: 6,
@@ -209,7 +230,7 @@ function createSectionTitle(text: string, color: string = COLORS.lightGreen): Pa
 /**
  * Créer un sous-titre avec fond coloré
  */
-function createSubtitle(text: string, color: string = COLORS.lightBlue): Paragraph {
+function createSubtitle(text: string, color: string = COLORS.tealMedium): Paragraph {
   return new Paragraph({
     children: [
       new TextRun({
@@ -231,14 +252,32 @@ function createSubtitle(text: string, color: string = COLORS.lightBlue): Paragra
 }
 
 /**
- * Créer une cellule de tableau
+ * Créer une cellule de tableau avec alternance de couleurs
+ * @param text - Texte de la cellule
+ * @param isHeader - Si c'est un en-tête de tableau (fond bleu foncé)
+ * @param isConformite - Si c'est une cellule de conformité (couleur verte/rouge)
+ * @param rowIndex - Index de la ligne (pour alternance de couleurs). Row 0 = header, Row 1+ = données
  */
 function createCell(
   text: string,
   isHeader: boolean = false,
-  isConformite: boolean = false
+  isConformite: boolean = false,
+  rowIndex?: number
 ): TableCell {
   const conformiteColor = isNonConforme(text) ? COLORS.red : COLORS.green;
+
+  // Déterminer la couleur de fond selon le type de cellule
+  let backgroundColor: string | undefined;
+
+  if (isHeader) {
+    // En-tête : Bleu foncé
+    backgroundColor = COLORS.darkTealHeader;
+  } else if (rowIndex !== undefined && rowIndex > 0) {
+    // Lignes de données : Alternance gris clair / blanc
+    // Row 2, 4, 6... (paires) → gris clair
+    // Row 1, 3, 5... (impaires) → blanc
+    backgroundColor = rowIndex % 2 === 0 ? COLORS.altRowGray : COLORS.white;
+  }
 
   return new TableCell({
     children: [
@@ -246,16 +285,16 @@ function createCell(
         children: [
           new TextRun({
             text,
-            bold: isHeader,
+            bold: isHeader || isConformite,  // Conformité en gras aussi
             color: isHeader ? COLORS.white : (isConformite ? conformiteColor : COLORS.darkGray),
-            size: isHeader ? 20 : 22,
+            size: isHeader ? 24 : 22,  // Arial 12pt pour headers, 11pt pour données
           }),
         ],
-        alignment: isHeader ? AlignmentType.CENTER : AlignmentType.LEFT,
+        alignment: isHeader || isConformite ? AlignmentType.CENTER : AlignmentType.LEFT,
       }),
     ],
-    shading: isHeader
-      ? { fill: COLORS.darkTeal, type: ShadingType.SOLID }
+    shading: backgroundColor
+      ? { fill: backgroundColor, type: ShadingType.SOLID }
       : undefined,
     verticalAlign: VerticalAlign.CENTER,
     margins: {
@@ -263,6 +302,12 @@ function createCell(
       bottom: convertInchesToTwip(0.08),
       left: convertInchesToTwip(0.15),
       right: convertInchesToTwip(0.15),
+    },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderGray },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderGray },
+      left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderGray },
+      right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderGray },
     },
   });
 }
@@ -407,7 +452,7 @@ export async function generateDOCX(
             text: "RAPPORT D'INSPECTION",
             size: 48,
             bold: true,
-            color: COLORS.darkTeal,
+            color: COLORS.tealMedium,
           }),
         ],
         alignment: AlignmentType.CENTER,
@@ -465,7 +510,7 @@ export async function generateDOCX(
             text: rapport.inspection.date,
             size: 28,
             bold: true,
-            color: COLORS.darkTeal,
+            color: COLORS.tealMedium,
           }),
         ],
         alignment: AlignmentType.CENTER,
@@ -487,7 +532,7 @@ export async function generateDOCX(
           text: "Ce rapport comprend les données suivantes :",
           size: 24,
           bold: true,
-          color: COLORS.darkTeal,
+          color: COLORS.tealMedium,
         }),
       ],
       alignment: AlignmentType.CENTER,
@@ -514,7 +559,7 @@ export async function generateDOCX(
                 }),
               ],
               shading: {
-                fill: COLORS.darkTeal,
+                fill: COLORS.tealMedium,
                 type: ShadingType.SOLID,
               },
               verticalAlign: VerticalAlign.CENTER,
@@ -539,7 +584,7 @@ export async function generateDOCX(
                 }),
               ],
               shading: {
-                fill: COLORS.lightBlue,
+                fill: COLORS.tealMedium,
                 type: ShadingType.SOLID,
               },
               verticalAlign: VerticalAlign.CENTER,
@@ -600,11 +645,13 @@ export async function generateDOCX(
   // Image principale de la piscine (plus grande, comme dans le PDF)
   if (piscineImages.length > 0 && piscineImages[0]) {
     try {
+      const { buffer, type } = base64ToBuffer(piscineImages[0].base64);
       docChildren.push(
         new Paragraph({
           children: [
             new ImageRun({
-              data: base64ToBuffer(piscineImages[0].base64),
+              data: buffer,
+              type: type,
               transformation: {
                 width: 550,
                 height: 380,
@@ -643,44 +690,44 @@ export async function generateDOCX(
       rows: [
         new TableRow({
           children: [
-            createCell("Information", true),
-            createCell("Détails", true),
+            createCell("Information", true, false, 0),
+            createCell("Détails", true, false, 0),
           ],
         }),
         new TableRow({
           children: [
-            createCell("Client"),
-            createCell(rapport.client.nom || "-"),
+            createCell("Client", false, false, 1),
+            createCell(rapport.client.nom || "-", false, false, 1),
           ],
         }),
         new TableRow({
           children: [
-            createCell("Adresse"),
-            createCell(rapport.client.adresse_complete || "-"),
+            createCell("Adresse", false, false, 2),
+            createCell(rapport.client.adresse_complete || "-", false, false, 2),
           ],
         }),
         new TableRow({
           children: [
-            createCell("Téléphone"),
-            createCell(rapport.client.telephone || "-"),
+            createCell("Téléphone", false, false, 3),
+            createCell(rapport.client.telephone || "-", false, false, 3),
           ],
         }),
         new TableRow({
           children: [
-            createCell("Email"),
-            createCell(rapport.client.email || "-"),
+            createCell("Email", false, false, 4),
+            createCell(rapport.client.email || "-", false, false, 4),
           ],
         }),
         new TableRow({
           children: [
-            createCell("Date d'intervention"),
-            createCell(rapport.inspection.date),
+            createCell("Date d'intervention", false, false, 5),
+            createCell(rapport.inspection.date, false, false, 5),
           ],
         }),
         new TableRow({
           children: [
-            createCell("Technicien"),
-            createCell(rapport.inspection.technicien.nom_complet || "-"),
+            createCell("Technicien", false, false, 6),
+            createCell(rapport.inspection.technicien.nom_complet || "-", false, false, 6),
           ],
         }),
       ],
@@ -697,7 +744,7 @@ export async function generateDOCX(
         new TextRun({
           text: "Services effectués :",
           bold: true,
-          color: COLORS.darkTeal,
+          color: COLORS.tealMedium,
           size: 24,
         }),
       ],
@@ -863,11 +910,13 @@ export async function generateDOCX(
 
     localTechniqueImages.forEach((img, index) => {
       try {
+        const { buffer, type } = base64ToBuffer(img.base64);
         docChildren.push(
           new Paragraph({
             children: [
               new ImageRun({
-                data: base64ToBuffer(img.base64),
+                data: buffer,
+                type: type,
                 transformation: {
                   width: 500,
                   height: 350,
@@ -936,13 +985,15 @@ export async function generateDOCX(
       const img2 = manometreImages[i + 1];
 
       try {
+        const { buffer: buffer1, type: type1 } = base64ToBuffer(img1.base64);
         const rowChildren: any[] = [
           new TableCell({
             children: [
               new Paragraph({
                 children: [
                   new ImageRun({
-                    data: base64ToBuffer(img1.base64),
+                    data: buffer1,
+                    type: type1,
                     transformation: {
                       width: 250,
                       height: 200,
@@ -958,13 +1009,15 @@ export async function generateDOCX(
         ];
 
         if (img2) {
+          const { buffer: buffer2, type: type2 } = base64ToBuffer(img2.base64);
           rowChildren.push(
             new TableCell({
               children: [
                 new Paragraph({
                   children: [
                     new ImageRun({
-                      data: base64ToBuffer(img2.base64),
+                      data: buffer2,
+                      type: type2,
                       transformation: {
                         width: 250,
                         height: 200,
@@ -1040,11 +1093,13 @@ export async function generateDOCX(
 
     equipementImages.forEach((img, index) => {
       try {
+        const { buffer, type } = base64ToBuffer(img.base64);
         docChildren.push(
           new Paragraph({
             children: [
               new ImageRun({
-                data: base64ToBuffer(img.base64),
+                data: buffer,
+                type: type,
                 transformation: {
                   width: 450,
                   height: 300,
@@ -1135,7 +1190,7 @@ export async function generateDOCX(
   // ==========================================
   docChildren.push(
     new Paragraph({ pageBreakBefore: true }),
-    createSectionTitle("RESPONSABILITÉS", COLORS.darkTeal),
+    createSectionTitle("RESPONSABILITÉS", COLORS.tealMedium),
 
     new Paragraph({
       children: [
