@@ -219,7 +219,7 @@ export function generatePDFV2(
   let uniqueImages = removeDuplicateImages(images);
   console.log(`Images uniques: ${uniqueImages.length}`);
 
-  // ÉTAPE 1.5 : Filtrer les images inutiles (schéma, diagramme, pages de couverture)
+  // ÉTAPE 1.5 : Filtrer les images inutiles (schéma, diagramme, pages de couverture, 3 cards)
   console.log("\n🗑️  Filtrage des images inutiles...");
   const beforeFilter = uniqueImages.length;
   uniqueImages = uniqueImages.filter(img => {
@@ -233,8 +233,13 @@ export function generatePDFV2(
       desc.includes("diagramme") ||
       desc.includes("étapes du rapport") ||
       desc.includes("etapes du rapport") ||
+      desc.includes("informations générales") ||
+      desc.includes("informations generales") ||
+      desc.includes("données suivantes") ||
+      desc.includes("donnees suivantes") ||
+      desc.includes("ce rapport comprend") ||
       (type === "couverture_rapport" && desc.includes("couverture")) ||
-      (type === "autre" && (desc.includes("schéma") || desc.includes("étapes")));
+      (type === "autre" && (desc.includes("schéma") || desc.includes("étapes") || desc.includes("informations") || desc.includes("rapport")));
 
     return !isUseless;
   });
@@ -282,12 +287,16 @@ export function generatePDFV2(
   const piscineImages = uniqueImages.filter(img => {
     if (usedImages.has(img)) return false;
     const desc = img.analysis?.description?.toLowerCase() || "";
+    const type = img.analysis?.type?.toLowerCase() || "";
 
-    // EXCLURE si contient "local technique" dans la description
-    if (desc.includes("local technique")) return false;
+    // EXCLURE si contient "local technique" dans description OU type
+    if (desc.includes("local technique") || type === "local_technique") return false;
+    // EXCLURE si c'est clairement du matériel de filtration
+    if (desc.includes("filtre") || desc.includes("pompe") || desc.includes("local")) return false;
 
-    const isPiscine = img.analysis?.type === "piscine" ||
+    const isPiscine = type === "piscine" ||
                      desc.includes("bassin") ||
+                     desc.includes("piscine") ||
                      (desc.includes("vue d'ensemble") && !desc.includes("local")) ||
                      img.analysis?.displayPriority === 1;
     if (isPiscine) usedImages.add(img);
@@ -297,13 +306,18 @@ export function generatePDFV2(
   // Local technique (SANS les manomètres)
   const localTechniqueImages = uniqueImages.filter(img => {
     if (usedImages.has(img)) return false;
-    const isLocal = (img.analysis?.type === "local_technique" ||
-                    img.analysis?.description?.toLowerCase().includes("local technique") ||
-                    img.analysis?.description?.toLowerCase().includes("filtre") ||
-                    img.analysis?.description?.toLowerCase().includes("pompe")) &&
-                   // EXCLURE les manomètres
-                   !img.analysis?.description?.toLowerCase().includes("manomètre") &&
-                   !img.analysis?.description?.toLowerCase().includes("pression");
+    const desc = img.analysis?.description?.toLowerCase() || "";
+    const type = img.analysis?.type?.toLowerCase() || "";
+
+    // EXCLURE si c'est une image de manomètre (déjà traitée)
+    if (desc.includes("manomètre") || desc.includes("pression")) return false;
+    // EXCLURE si c'est une image de piscine/bassin
+    if (type === "piscine" || desc.includes("bassin") || desc.includes("piscine")) return false;
+
+    const isLocal = type === "local_technique" ||
+                   desc.includes("local technique") ||
+                   desc.includes("filtre") ||
+                   desc.includes("pompe");
     if (isLocal) usedImages.add(img);
     return isLocal;
   });

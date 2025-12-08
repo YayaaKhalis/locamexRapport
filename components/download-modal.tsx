@@ -7,14 +7,18 @@ import { Button } from "@/components/ui/button";
 
 interface DownloadModalProps {
   isOpen: boolean;
-  onDownload: () => void;
+  onDownloadPdf: () => void;
+  onDownloadDocx: () => void;
+  hasDocx: boolean;
   onClose: () => void;
   onNewReport: () => void;
 }
 
 export function DownloadModal({
   isOpen,
-  onDownload,
+  onDownloadPdf,
+  onDownloadDocx,
+  hasDocx,
   onClose,
   onNewReport,
 }: DownloadModalProps) {
@@ -186,13 +190,35 @@ export function DownloadModal({
                     transition={{ delay: 0.5 }}
                     className="space-y-3"
                   >
+                    {/* Bouton PDF Principal */}
                     <ShimmerButton
-                      onClick={onDownload}
+                      onClick={onDownloadPdf}
                       className="w-full h-14 text-base"
                     >
                       <Download className="w-5 h-5" />
                       Télécharger le PDF
                     </ShimmerButton>
+
+                    {/* Bouton DOCX (si disponible) */}
+                    {hasDocx && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.6 }}
+                      >
+                        <Button
+                          onClick={onDownloadDocx}
+                          variant="outline"
+                          size="lg"
+                          className="w-full h-12 border-2 border-[#7CAEB8] hover:bg-[#7CAEB8]/10 gap-2"
+                        >
+                          <FileText className="w-5 h-5 text-[#7CAEB8]" />
+                          <span className="text-[#7CAEB8] font-semibold">
+                            Télécharger le DOCX (modifiable)
+                          </span>
+                        </Button>
+                      </motion.div>
+                    )}
 
                     <Button
                       onClick={onNewReport}

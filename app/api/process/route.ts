@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractWordContentAdvanced } from "@/lib/word-extractor-advanced";
 import { generatePDFV2 } from "@/lib/pdf-generator-v3";
+import { generateDOCX } from "@/lib/docx-generator-v2";
 import { analyzeAllImages } from "@/lib/image-analyzer";
 import { analyzeReportWithAI, validateRapportAnalyse } from "@/lib/report-analyzer";
 import { ReportDataV2 } from "@/types";
@@ -99,24 +100,43 @@ export async function POST(request: NextRequest) {
     };
 
     // Étape 4 : Génération du PDF professionnel v3 (nouvelle structure)
-    console.log("\n📑 ÉTAPE 4 : Génération du PDF professionnel v3...");
+    console.log("\n📑 ÉTAPE 4 : Génération des formats PDF + DOCX...");
 
+    // Générer le PDF
+    console.log("   📄 Génération PDF...");
     const pdfBlob = generatePDFV2(analyzedReport, analyzedImages);
+    const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+    const pdfBuffer = Buffer.from(pdfArrayBuffer);
+    console.log("   ✅ PDF généré avec succès");
 
-    // Convertir le Blob en Buffer pour Next.js
-    const arrayBuffer = await pdfBlob.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Générer le DOCX
+    console.log("   📝 Génération DOCX...");
+    const docxBuffer = await generateDOCX(analyzedReport, analyzedImages);
+    console.log("   ✅ DOCX généré avec succès");
 
-    console.log("✅ PDF généré avec succès");
     console.log("\n========================================");
     console.log("TRAITEMENT TERMINÉ AVEC SUCCÈS");
     console.log("========================================\n");
 
-    // Retourner le PDF
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="rapport_locamex_${analyzedReport.client.nom || "client"}_${analyzedReport.inspection.date.replace(/\//g, "-")}.pdf"`,
+    // Nom de fichier de base
+    const baseFilename = `rapport_locamex_${analyzedReport.client.nom || "client"}_${analyzedReport.inspection.date.replace(/\//g, "-")}`;
+
+    // Retourner les deux formats en JSON
+    return NextResponse.json({
+      success: true,
+      files: {
+        pdf: {
+          data: pdfBuffer.toString("base64"),
+          filename: `${baseFilename}.pdf`,
+          mimeType: "application/pdf",
+          size: pdfBuffer.length,
+        },
+        docx: {
+          data: docxBuffer.toString("base64"),
+          filename: `${baseFilename}.docx`,
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          size: docxBuffer.length,
+        },
       },
     });
   } catch (error) {

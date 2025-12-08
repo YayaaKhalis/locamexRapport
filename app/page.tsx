@@ -24,18 +24,25 @@ export default function Home() {
     message: "",
   });
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [docxBlob, setDocxBlob] = useState<Blob | null>(null);
+  const [pdfFilename, setPdfFilename] = useState<string>("");
+  const [docxFilename, setDocxFilename] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     setError(null);
     setPdfBlob(null);
+    setDocxBlob(null);
   };
 
   const handleClearFile = () => {
     setSelectedFile(null);
     setError(null);
     setPdfBlob(null);
+    setDocxBlob(null);
+    setPdfFilename("");
+    setDocxFilename("");
     setProcessingState({
       step: "idle",
       progress: 0,
@@ -80,6 +87,11 @@ export default function Home() {
     };
 
     try {
+      // Réinitialiser les blobs
+      setError(null);
+      setPdfBlob(null);
+      setDocxBlob(null);
+
       // Étape 1: Lecture du fichier (0% -> 15%)
       setProcessingState({
         step: "uploading",
@@ -130,11 +142,11 @@ export default function Home() {
       });
       await simulateProgress(60, 75, 1000);
 
-      // Étape 6: Génération du PDF (75% -> 90%)
+      // Étape 6: Génération PDF + DOCX (75% -> 90%)
       setProcessingState({
         step: "generating",
         progress: 75,
-        message: "Génération du PDF...",
+        message: "Génération PDF + DOCX...",
       });
       await simulateProgress(75, 90, 1000);
 
@@ -146,6 +158,13 @@ export default function Home() {
         throw new Error(errorData.error || "Erreur lors du traitement");
       }
 
+      // Parser la réponse JSON
+      const result = await response.json();
+
+      if (!result.success || !result.files) {
+        throw new Error("Réponse invalide du serveur");
+      }
+
       // Étape 7: Finalisation (90% -> 100%)
       setProcessingState({
         step: "generating",
@@ -154,8 +173,26 @@ export default function Home() {
       });
       await simulateProgress(90, 100, 600);
 
-      const blob = await response.blob();
-      setPdfBlob(blob);
+      // Convertir les base64 en Blobs
+      const pdfData = atob(result.files.pdf.data);
+      const pdfArray = new Uint8Array(pdfData.length);
+      for (let i = 0; i < pdfData.length; i++) {
+        pdfArray[i] = pdfData.charCodeAt(i);
+      }
+      const pdfBlobCreated = new Blob([pdfArray], { type: result.files.pdf.mimeType });
+
+      const docxData = atob(result.files.docx.data);
+      const docxArray = new Uint8Array(docxData.length);
+      for (let i = 0; i < docxData.length; i++) {
+        docxArray[i] = docxData.charCodeAt(i);
+      }
+      const docxBlobCreated = new Blob([docxArray], { type: result.files.docx.mimeType });
+
+      // Stocker les blobs et noms de fichiers
+      setPdfBlob(pdfBlobCreated);
+      setDocxBlob(docxBlobCreated);
+      setPdfFilename(result.files.pdf.filename);
+      setDocxFilename(result.files.docx.filename);
 
       setProcessingState({
         step: "completed",
@@ -183,7 +220,20 @@ export default function Home() {
     const url = URL.createObjectURL(pdfBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rapport_corrige_${new Date().toISOString().split("T")[0]}.pdf`;
+    a.download = pdfFilename || `rapport_corrige_${new Date().toISOString().split("T")[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadDocx = () => {
+    if (!docxBlob) return;
+
+    const url = URL.createObjectURL(docxBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = docxFilename || `rapport_corrige_${new Date().toISOString().split("T")[0]}.docx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -343,7 +393,9 @@ export default function Home() {
       {/* Download Modal */}
       <DownloadModal
         isOpen={processingState.step === "completed" && pdfBlob !== null}
-        onDownload={handleDownload}
+        onDownloadPdf={handleDownload}
+        onDownloadDocx={handleDownloadDocx}
+        hasDocx={docxBlob !== null}
         onClose={() => {}}
         onNewReport={handleClearFile}
       />
