@@ -59,7 +59,7 @@ function loadImageAsBuffer(imageName: string): Buffer | null {
 /**
  * Détecter le type MIME d'une image base64
  */
-function detectImageType(base64: string): string {
+function detectImageType(base64: string): "svg" | "jpg" | "png" | "gif" | "bmp" {
   if (base64.startsWith("data:image/png")) return "png";
   if (base64.startsWith("data:image/jpeg") || base64.startsWith("data:image/jpg")) return "jpg";
   if (base64.startsWith("data:image/gif")) return "gif";
@@ -72,7 +72,7 @@ function detectImageType(base64: string): string {
 /**
  * Convertir base64 en Buffer ET détecter le type
  */
-function base64ToBuffer(base64: string): { buffer: Buffer; type: string } {
+function base64ToBuffer(base64: string): { buffer: Buffer; type: "svg" | "jpg" | "png" | "gif" | "bmp" } {
   const type = detectImageType(base64);
   const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
   const buffer = Buffer.from(base64Data, "base64");
@@ -464,7 +464,7 @@ export async function generateDOCX(
             text: "LOCAMEX",
             size: 36,
             bold: true,
-            color: COLORS.lightBlue,
+            color: COLORS.tealMedium,
           }),
         ],
         alignment: AlignmentType.CENTER,
@@ -783,14 +783,14 @@ export async function generateDOCX(
       rows: [
         new TableRow({
           children: [
-            createCell("DESCRIPTION", true),
-            createCell("ÉTAT DES LIEUX", true),
+            createCell("DESCRIPTION", true, false, 0),
+            createCell("ÉTAT DES LIEUX", true, false, 0),
           ],
         }),
         new TableRow({
           children: [
-            createCell(`Le revêtement est de type : ${rapport.piscine?.revetement?.type || "-"}.\n\nÂge : ${rapport.piscine?.revetement?.age || "-"}\n\n\nLa filtration est de type : ${rapport.piscine?.filtration?.type || "-"}`),
-            createCell(`Remplissage : ${rapport.piscine?.etat_des_lieux?.remplissage || "-"}\n\n\nÉtat de l'eau : ${rapport.piscine?.etat_des_lieux?.etat_eau || "-"}`),
+            createCell(`Le revêtement est de type : ${rapport.piscine?.revetement?.type || "-"}.\n\nÂge : ${rapport.piscine?.revetement?.age || "-"}\n\n\nLa filtration est de type : ${rapport.piscine?.filtration?.type || "-"}`, false, false, 1),
+            createCell(`Remplissage : ${rapport.piscine?.etat_des_lieux?.remplissage || "-"}\n\n\nÉtat de l'eau : ${rapport.piscine?.etat_des_lieux?.etat_eau || "-"}`, false, false, 1),
           ],
         }),
       ],
@@ -802,77 +802,98 @@ export async function generateDOCX(
 
     new Paragraph({ text: "", spacing: { after: 200 } }),
 
-    createSubtitle("Équipements"),
+    createSubtitle("Équipements")
+  );
 
-    new Table({
-      rows: [
-        new TableRow({
-          children: [
-            createCell("Équipement", true),
-            createCell("Quantité", true),
-          ],
-        }),
-        ...(rapport.equipements.skimmer.quantite > 0
-          ? [
-              new TableRow({
-                children: [
-                  createCell("Skimmer"),
-                  createCell(rapport.equipements.skimmer.quantite.toString()),
-                ],
-              }),
-            ]
-          : []),
-        ...(rapport.equipements.prise_balai.quantite > 0
-          ? [
-              new TableRow({
-                children: [
-                  createCell("Prise balai"),
-                  createCell(rapport.equipements.prise_balai.quantite.toString()),
-                ],
-              }),
-            ]
-          : []),
-        ...(rapport.equipements.bonde_fond.quantite > 0
-          ? [
-              new TableRow({
-                children: [
-                  createCell("Bonde de fond"),
-                  createCell(rapport.equipements.bonde_fond.quantite.toString()),
-                ],
-              }),
-            ]
-          : []),
-        ...(rapport.equipements.refoulement.quantite > 0
-          ? [
-              new TableRow({
-                children: [
-                  createCell("Refoulement"),
-                  createCell(rapport.equipements.refoulement.quantite.toString()),
-                ],
-              }),
-            ]
-          : []),
-        ...(rapport.equipements.bonde_bac_volet.quantite > 0
-          ? [
-              new TableRow({
-                children: [
-                  createCell("Bonde de bac volet"),
-                  createCell(rapport.equipements.bonde_bac_volet.quantite.toString()),
-                ],
-              }),
-            ]
-          : []),
-        ...(rapport.equipements.spot.quantite > 0
-          ? [
-              new TableRow({
-                children: [
-                  createCell("Spot"),
-                  createCell(rapport.equipements.spot.quantite.toString()),
-                ],
-              }),
-            ]
-          : []),
+  // Build equipment table with dynamic rowIndex
+  const equipmentRows: TableRow[] = [];
+
+  // Header row
+  equipmentRows.push(
+    new TableRow({
+      children: [
+        createCell("Équipement", true, false, 0),
+        createCell("Quantité", true, false, 0),
       ],
+    })
+  );
+
+  // Add conditional equipment rows with dynamic rowIndex
+  if (rapport.equipements.skimmer.quantite > 0) {
+    const rowIndex = equipmentRows.length;
+    equipmentRows.push(
+      new TableRow({
+        children: [
+          createCell("Skimmer", false, false, rowIndex),
+          createCell(rapport.equipements.skimmer.quantite.toString(), false, false, rowIndex),
+        ],
+      })
+    );
+  }
+
+  if (rapport.equipements.prise_balai.quantite > 0) {
+    const rowIndex = equipmentRows.length;
+    equipmentRows.push(
+      new TableRow({
+        children: [
+          createCell("Prise balai", false, false, rowIndex),
+          createCell(rapport.equipements.prise_balai.quantite.toString(), false, false, rowIndex),
+        ],
+      })
+    );
+  }
+
+  if (rapport.equipements.bonde_fond.quantite > 0) {
+    const rowIndex = equipmentRows.length;
+    equipmentRows.push(
+      new TableRow({
+        children: [
+          createCell("Bonde de fond", false, false, rowIndex),
+          createCell(rapport.equipements.bonde_fond.quantite.toString(), false, false, rowIndex),
+        ],
+      })
+    );
+  }
+
+  if (rapport.equipements.refoulement.quantite > 0) {
+    const rowIndex = equipmentRows.length;
+    equipmentRows.push(
+      new TableRow({
+        children: [
+          createCell("Refoulement", false, false, rowIndex),
+          createCell(rapport.equipements.refoulement.quantite.toString(), false, false, rowIndex),
+        ],
+      })
+    );
+  }
+
+  if (rapport.equipements.bonde_bac_volet.quantite > 0) {
+    const rowIndex = equipmentRows.length;
+    equipmentRows.push(
+      new TableRow({
+        children: [
+          createCell("Bonde de bac volet", false, false, rowIndex),
+          createCell(rapport.equipements.bonde_bac_volet.quantite.toString(), false, false, rowIndex),
+        ],
+      })
+    );
+  }
+
+  if (rapport.equipements.spot.quantite > 0) {
+    const rowIndex = equipmentRows.length;
+    equipmentRows.push(
+      new TableRow({
+        children: [
+          createCell("Spot", false, false, rowIndex),
+          createCell(rapport.equipements.spot.quantite.toString(), false, false, rowIndex),
+        ],
+      })
+    );
+  }
+
+  docChildren.push(
+    new Table({
+      rows: equipmentRows,
       width: {
         size: 100,
         type: WidthType.PERCENTAGE,
@@ -943,25 +964,36 @@ export async function generateDOCX(
 
   // Tests de pression - Canalisations
   if (rapport.conformite?.canalisations && rapport.conformite.canalisations.length > 0) {
+    // Build conformity table with dynamic rowIndex
+    const canalisationsRows: TableRow[] = [];
+
+    // Header row
+    canalisationsRows.push(
+      new TableRow({
+        children: [
+          createCell("Canalisation", true, false, 0),
+          createCell("Conformité", true, false, 0),
+        ],
+      })
+    );
+
+    // Add conformity rows with dynamic rowIndex
+    rapport.conformite.canalisations.forEach((item) => {
+      const rowIndex = canalisationsRows.length;
+      canalisationsRows.push(
+        new TableRow({
+          children: [
+            createCell(item.element, false, false, rowIndex),
+            createCell(item.statut, false, true, rowIndex),
+          ],
+        })
+      );
+    });
+
     docChildren.push(
       createSubtitle("Tests de pression - Canalisations"),
       new Table({
-        rows: [
-          new TableRow({
-            children: [
-              createCell("Canalisation", true),
-              createCell("Conformité", true),
-            ],
-          }),
-          ...rapport.conformite.canalisations.map((item) =>
-            new TableRow({
-              children: [
-                createCell(item.element),
-                createCell(item.statut, false, true),
-              ],
-            })
-          ),
-        ],
+        rows: canalisationsRows,
         width: {
           size: 100,
           type: WidthType.PERCENTAGE,
@@ -1059,25 +1091,36 @@ export async function generateDOCX(
 
   // Tests d'étanchéité - Pièces à sceller
   if (rapport.conformite?.pieces_sceller && rapport.conformite.pieces_sceller.length > 0) {
+    // Build conformity table with dynamic rowIndex
+    const piecesScellerRows: TableRow[] = [];
+
+    // Header row
+    piecesScellerRows.push(
+      new TableRow({
+        children: [
+          createCell("Pièce à sceller", true, false, 0),
+          createCell("Conformité", true, false, 0),
+        ],
+      })
+    );
+
+    // Add conformity rows with dynamic rowIndex
+    rapport.conformite.pieces_sceller.forEach((item) => {
+      const rowIndex = piecesScellerRows.length;
+      piecesScellerRows.push(
+        new TableRow({
+          children: [
+            createCell(item.element, false, false, rowIndex),
+            createCell(item.statut, false, true, rowIndex),
+          ],
+        })
+      );
+    });
+
     docChildren.push(
       createSubtitle("Tests d'étanchéité - Pièces à sceller"),
       new Table({
-        rows: [
-          new TableRow({
-            children: [
-              createCell("Pièce à sceller", true),
-              createCell("Conformité", true),
-            ],
-          }),
-          ...rapport.conformite.pieces_sceller.map((item) =>
-            new TableRow({
-              children: [
-                createCell(item.element),
-                createCell(item.statut, false, true),
-              ],
-            })
-          ),
-        ],
+        rows: piecesScellerRows,
         width: {
           size: 100,
           type: WidthType.PERCENTAGE,
@@ -1124,14 +1167,14 @@ export async function generateDOCX(
         rows: [
           new TableRow({
             children: [
-              createCell("Élément", true),
-              createCell("Conformité", true),
+              createCell("Élément", true, false, 0),
+              createCell("Conformité", true, false, 0),
             ],
           }),
           new TableRow({
             children: [
-              createCell("Étanchéité du revêtement"),
-              createCell(rapport.conformite.etancheite.revetement, false, true),
+              createCell("Étanchéité du revêtement", false, false, 1),
+              createCell(rapport.conformite.etancheite.revetement, false, true, 1),
             ],
           }),
         ],
